@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { 
   Download, 
@@ -29,6 +28,8 @@ import FileConverter from '@/components/converter/FileConverter';
 import FileCompression from '@/components/converter/FileCompression';
 import YouTubeDownloader from '@/components/converter/YouTubeDownloader';
 import AIHelper from '@/components/converter/AIHelper';
+import EmailVerification from '@/components/converter/EmailVerification';
+import AdminPanel from '@/components/converter/AdminPanel';
 
 interface ProcessedFile {
   id: string;
@@ -44,7 +45,8 @@ interface ProcessedFile {
 const Converter = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const { toast } = useToast();
 
   const handleFilesSelected = useCallback((selectedFiles: File[]) => {
@@ -54,6 +56,11 @@ const Converter = () => {
       description: `${selectedFiles.length} file(s) ready for processing`,
     });
   }, [toast]);
+
+  const handleEmailVerified = (email: string) => {
+    setIsEmailVerified(true);
+    setUserEmail(email);
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -99,6 +106,11 @@ const Converter = () => {
           <p className="text-xl text-gray-600 mb-2">File Converter & Downloader</p>
           <p className="text-gray-500">Convert, compress, and download files with ease</p>
         </div>
+
+        {/* Email Verification */}
+        {!isEmailVerified && (
+          <EmailVerification onVerified={handleEmailVerified} />
+        )}
 
         {/* AI Helper */}
         <AIHelper />
@@ -147,11 +159,12 @@ const Converter = () => {
         )}
 
         <Tabs defaultValue="converter" className="space-y-6">
-          <TabsList className="grid w-full lg:w-[800px] mx-auto grid-cols-4 bg-white/60 backdrop-blur-sm">
+          <TabsList className="grid w-full lg:w-[1000px] mx-auto grid-cols-5 bg-white/60 backdrop-blur-sm">
             <TabsTrigger value="converter">File Converter</TabsTrigger>
             <TabsTrigger value="compression">Compression</TabsTrigger>
             <TabsTrigger value="youtube">YouTube Downloader</TabsTrigger>
             <TabsTrigger value="results">Results</TabsTrigger>
+            <TabsTrigger value="admin">Admin Panel</TabsTrigger>
           </TabsList>
 
           {/* File Converter */}
@@ -286,6 +299,11 @@ const Converter = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Admin Panel */}
+          <TabsContent value="admin">
+            <AdminPanel />
           </TabsContent>
         </Tabs>
       </div>
