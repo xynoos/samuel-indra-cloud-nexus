@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useCallback } from 'react';
 import { 
   Download, 
   Upload, 
@@ -9,7 +10,10 @@ import {
   RefreshCw,
   CheckCircle,
   AlertCircle,
-  Youtube
+  Youtube,
+  Copy,
+  Trash2,
+  Play
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,291 +21,271 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
+import DropzoneUpload from '@/components/converter/DropzoneUpload';
+import FileConverter from '@/components/converter/FileConverter';
+import FileCompression from '@/components/converter/FileCompression';
+import YouTubeDownloader from '@/components/converter/YouTubeDownloader';
+import AIHelper from '@/components/converter/AIHelper';
+
+interface ProcessedFile {
+  id: string;
+  name: string;
+  originalSize: number;
+  processedSize?: number;
+  url: string;
+  type: string;
+  status: 'processing' | 'completed' | 'error';
+  progress: number;
+}
 
 const Converter = () => {
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [conversionProgress, setConversionProgress] = useState(0);
+  const [files, setFiles] = useState<File[]>([]);
+  const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
 
-  const handleYouTubeDownload = (format: 'mp3' | 'mp4') => {
-    if (!youtubeUrl.trim()) return;
-    
-    setIsProcessing(true);
-    setDownloadProgress(0);
-    
-    // Simulate download progress
-    const interval = setInterval(() => {
-      setDownloadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsProcessing(false);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
+  const handleFilesSelected = useCallback((selectedFiles: File[]) => {
+    setFiles(prev => [...prev, ...selectedFiles]);
+    toast({
+      title: "Files uploaded",
+      description: `${selectedFiles.length} file(s) ready for processing`,
+    });
+  }, [toast]);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const conversionTools = [
-    {
-      category: "Document",
-      tools: [
-        { from: "PDF", to: "TXT", icon: <FileType className="w-5 h-5" /> },
-        { from: "DOC", to: "PDF", icon: <FileType className="w-5 h-5" /> },
-        { from: "TXT", to: "PDF", icon: <FileType className="w-5 h-5" /> }
-      ]
-    },
-    {
-      category: "Image",
-      tools: [
-        { from: "JPG", to: "WebP", icon: <ImageIcon className="w-5 h-5" /> },
-        { from: "PNG", to: "JPG", icon: <ImageIcon className="w-5 h-5" /> },
-        { from: "GIF", to: "MP4", icon: <ImageIcon className="w-5 h-5" /> }
-      ]
-    },
-    {
-      category: "Video",
-      tools: [
-        { from: "MP4", to: "WebM", icon: <Video className="w-5 h-5" /> },
-        { from: "AVI", to: "MP4", icon: <Video className="w-5 h-5" /> },
-        { from: "MOV", to: "MP4", icon: <Video className="w-5 h-5" /> }
-      ]
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied!",
+        description: "Link copied to clipboard",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
     }
-  ];
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeProcessedFile = (id: string) => {
+    setProcessedFiles(prev => prev.filter(file => file.id !== id));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <Navigation />
       
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Converter & Downloader</h1>
-          <p className="text-gray-600">Convert file dan download konten dari internet</p>
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+            SamuelIndraBastian Cloud Storage
+          </h1>
+          <p className="text-xl text-gray-600 mb-2">File Converter & Downloader</p>
+          <p className="text-gray-500">Convert, compress, and download files with ease</p>
         </div>
 
-        <Tabs defaultValue="youtube" className="space-y-6">
-          <TabsList className="grid w-full lg:w-[600px] grid-cols-3 bg-white/60 backdrop-blur-sm">
-            <TabsTrigger value="youtube">YouTube Downloader</TabsTrigger>
-            <TabsTrigger value="converter">File Converter</TabsTrigger>
-            <TabsTrigger value="tools">Tools Lainnya</TabsTrigger>
-          </TabsList>
+        {/* AI Helper */}
+        <AIHelper />
 
-          {/* YouTube Downloader */}
-          <TabsContent value="youtube">
-            <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Youtube className="w-6 h-6 text-red-600" />
-                  <span>YouTube Downloader</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      URL YouTube
-                    </label>
-                    <Input
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      className="bg-white/50 border-white/20"
-                    />
-                  </div>
+        {/* Drag and Drop Upload Area */}
+        <DropzoneUpload onFilesSelected={handleFilesSelected} />
 
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <Button
-                      onClick={() => handleYouTubeDownload('mp3')}
-                      disabled={!youtubeUrl.trim() || isProcessing}
-                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                    >
-                      <Music className="w-4 h-4 mr-2" />
-                      Download MP3
-                    </Button>
-                    <Button
-                      onClick={() => handleYouTubeDownload('mp4')}
-                      disabled={!youtubeUrl.trim() || isProcessing}
-                      className="flex-1 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700"
-                    >
-                      <Video className="w-4 h-4 mr-2" />
-                      Download MP4
-                    </Button>
-                  </div>
-
-                  {isProcessing && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Downloading...</span>
-                        <span>{downloadProgress}%</span>
+        {/* Uploaded Files Preview */}
+        {files.length > 0 && (
+          <Card className="mb-6 bg-white/60 backdrop-blur-sm border-white/20">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Upload className="w-5 h-5" />
+                <span>Uploaded Files ({files.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {files.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg border border-white/30">
+                    <div className="flex items-center space-x-3">
+                      <FileType className="w-6 h-6 text-blue-500" />
+                      <div>
+                        <p className="font-medium text-gray-800">{file.name}</p>
+                        <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
                       </div>
-                      <Progress value={downloadProgress} className="h-2" />
                     </div>
-                  )}
-                </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline" className="border-blue-200">
+                        {file.type.split('/')[1]?.toUpperCase() || 'Unknown'}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeFile(index)}
+                        className="border-red-200 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-                <div className="bg-blue-50/50 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-800 mb-2">Fitur:</h3>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Download video dalam kualitas HD</li>
-                    <li>• Extract audio ke format MP3</li>
-                    <li>• Mendukung berbagai resolusi</li>
-                    <li>• Download playlist (segera hadir)</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+        <Tabs defaultValue="converter" className="space-y-6">
+          <TabsList className="grid w-full lg:w-[800px] mx-auto grid-cols-4 bg-white/60 backdrop-blur-sm">
+            <TabsTrigger value="converter">File Converter</TabsTrigger>
+            <TabsTrigger value="compression">Compression</TabsTrigger>
+            <TabsTrigger value="youtube">YouTube Downloader</TabsTrigger>
+            <TabsTrigger value="results">Results</TabsTrigger>
+          </TabsList>
 
           {/* File Converter */}
           <TabsContent value="converter">
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <RefreshCw className="w-6 h-6 text-blue-600" />
-                    <span>File Converter</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-2">Drag & drop file atau klik untuk upload</p>
-                    <Button variant="outline" className="border-blue-200 hover:bg-blue-50">
-                      Pilih File
-                    </Button>
+            <FileConverter 
+              files={files} 
+              onProcessComplete={(processedFile) => {
+                setProcessedFiles(prev => [...prev, processedFile]);
+              }}
+            />
+          </TabsContent>
+
+          {/* File Compression */}
+          <TabsContent value="compression">
+            <FileCompression 
+              files={files} 
+              onProcessComplete={(processedFile) => {
+                setProcessedFiles(prev => [...prev, processedFile]);
+              }}
+            />
+          </TabsContent>
+
+          {/* YouTube Downloader */}
+          <TabsContent value="youtube">
+            <YouTubeDownloader 
+              onProcessComplete={(processedFile) => {
+                setProcessedFiles(prev => [...prev, processedFile]);
+              }}
+            />
+          </TabsContent>
+
+          {/* Results */}
+          <TabsContent value="results">
+            <Card className="bg-white/60 backdrop-blur-sm border-white/20">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <span>Processed Files ({processedFiles.length})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {processedFiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No processed files yet. Start by uploading and converting files.
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Format Asal
-                      </label>
-                      <Select>
-                        <SelectTrigger className="bg-white/50 border-white/20">
-                          <SelectValue placeholder="Auto-detect" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pdf">PDF</SelectItem>
-                          <SelectItem value="jpg">JPG</SelectItem>
-                          <SelectItem value="png">PNG</SelectItem>
-                          <SelectItem value="mp4">MP4</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Convert ke
-                      </label>
-                      <Select>
-                        <SelectTrigger className="bg-white/50 border-white/20">
-                          <SelectValue placeholder="Pilih format" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="txt">TXT</SelectItem>
-                          <SelectItem value="webp">WebP</SelectItem>
-                          <SelectItem value="pdf">PDF</SelectItem>
-                          <SelectItem value="webm">WebM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Convert File
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle>Conversion Tools</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {conversionTools.map((category, index) => (
-                      <div key={index}>
-                        <h3 className="font-semibold text-gray-800 mb-3">{category.category}</h3>
-                        <div className="space-y-2">
-                          {category.tools.map((tool, toolIndex) => (
-                            <div key={toolIndex} className="flex items-center justify-between p-3 bg-white/50 rounded-lg border border-white/30 hover:bg-white/80 transition-colors">
-                              <div className="flex items-center space-x-3">
-                                <div className="text-blue-600">{tool.icon}</div>
-                                <span className="text-sm font-medium">
-                                  {tool.from} → {tool.to}
-                                </span>
+                ) : (
+                  <div className="grid gap-4">
+                    {processedFiles.map((file) => (
+                      <div key={file.id} className="p-4 bg-white/50 rounded-lg border border-white/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            {file.type.includes('image') ? (
+                              <ImageIcon className="w-6 h-6 text-green-500" />
+                            ) : file.type.includes('video') ? (
+                              <Video className="w-6 h-6 text-red-500" />
+                            ) : file.type.includes('audio') ? (
+                              <Music className="w-6 h-6 text-purple-500" />
+                            ) : (
+                              <FileType className="w-6 h-6 text-blue-500" />
+                            )}
+                            <div>
+                              <p className="font-medium text-gray-800">{file.name}</p>
+                              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                <span>Original: {formatFileSize(file.originalSize)}</span>
+                                {file.processedSize && (
+                                  <span>Processed: {formatFileSize(file.processedSize)}</span>
+                                )}
+                                {file.processedSize && file.originalSize && (
+                                  <Badge variant="outline" className="border-green-200">
+                                    {Math.round(((file.originalSize - file.processedSize) / file.originalSize) * 100)}% saved
+                                  </Badge>
+                                )}
                               </div>
-                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                                Use
-                              </Button>
                             </div>
-                          ))}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {file.status === 'processing' && (
+                              <>
+                                <Progress value={file.progress} className="w-20" />
+                                <span className="text-sm text-gray-500">{file.progress}%</span>
+                              </>
+                            )}
+                            {file.status === 'completed' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => copyToClipboard(file.url)}
+                                  className="border-blue-200 hover:bg-blue-50"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                                  onClick={() => window.open(file.url, '_blank')}
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Download
+                                </Button>
+                              </>
+                            )}
+                            {file.status === 'error' && (
+                              <Badge variant="destructive">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Error
+                              </Badge>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => removeProcessedFile(file.id)}
+                              className="border-red-200 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
+                        
+                        {file.type.includes('image') && file.status === 'completed' && (
+                          <div className="mt-3">
+                            <img 
+                              src={file.url} 
+                              alt={file.name}
+                              className="max-w-full h-32 object-cover rounded-lg border border-white/30"
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Other Tools */}
-          <TabsContent value="tools">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <ImageIcon className="w-5 h-5 text-green-600" />
-                    <span>Image Optimizer</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Kompres dan optimasi gambar untuk web
-                  </p>
-                  <Button className="w-full" variant="outline">
-                    Coming Soon
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Video className="w-5 h-5 text-red-600" />
-                    <span>Video Compressor</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Kompres video untuk menghemat ruang
-                  </p>
-                  <Button className="w-full" variant="outline">
-                    Coming Soon
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <FileType className="w-5 h-5 text-blue-600" />
-                    <span>Batch Converter</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Convert multiple files sekaligus
-                  </p>
-                  <Button className="w-full" variant="outline">
-                    Coming Soon
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
