@@ -3,33 +3,29 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Cloud, 
-  LayoutDashboard, 
-  HardDrive, 
+  Home, 
+  FolderOpen, 
   Users, 
+  MessageCircle, 
   Bot, 
-  Download,
-  MessageSquare,
-  User,
-  LogOut
+  RefreshCw,
+  BarChart3,
+  Settings,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 const Navigation = () => {
   const location = useLocation();
 
-  const navItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/storage/private', icon: HardDrive, label: 'Storage Pribadi' },
-    { path: '/storage/shared', icon: Users, label: 'Storage Bersama' },
+  const navigationItems = [
+    { path: '/dashboard', icon: Home, label: 'Dashboard' },
+    { path: '/storage/private', icon: FolderOpen, label: 'My Storage' },
+    { path: '/storage/shared', icon: Users, label: 'Shared' },
+    { path: '/feed', icon: MessageCircle, label: 'Feed' },
+    { path: '/chat', icon: MessageCircle, label: 'Chat' },
     { path: '/ai-assistant', icon: Bot, label: 'AI Assistant' },
-    { path: '/converter', icon: Download, label: 'Converter' },
-    { path: '/feed', icon: MessageSquare, label: 'Feed' },
+    { path: '/converter', icon: RefreshCw, label: 'Converter' },
   ];
 
   return (
@@ -43,77 +39,45 @@ const Navigation = () => {
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => {
+          <div className="hidden lg:flex items-center space-x-1">
+            {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               
               return (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    size="sm"
-                    className={`flex items-center space-x-2 ${
-                      isActive 
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white" 
-                        : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden lg:inline">{item.label}</span>
-                  </Button>
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
           </div>
 
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">SI</span>
-                </div>
-                <span className="hidden md:inline text-gray-700">Samuel</span>
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-blue-600"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Link to="/profile/samuel">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-blue-600"
+              >
+                <User className="w-4 h-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-white/90 backdrop-blur-sm">
-              <DropdownMenuItem>
-                <User className="w-4 h-4 mr-2" />
-                Profil
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Mobile Navigation */}
-        <div className="md:hidden pb-3">
-          <div className="flex space-x-1 overflow-x-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              
-              return (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    size="sm"
-                    className={`flex items-center space-x-2 whitespace-nowrap ${
-                      isActive 
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white" 
-                        : "text-gray-700"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="text-xs">{item.label}</span>
-                  </Button>
-                </Link>
-              );
-            })}
+            </Link>
           </div>
         </div>
       </div>

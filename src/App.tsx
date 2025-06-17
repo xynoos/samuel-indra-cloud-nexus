@@ -14,6 +14,9 @@ import StorageShared from "./pages/StorageShared";
 import AIAssistant from "./pages/AIAssistant";
 import Converter from "./pages/Converter";
 import Feed from "./pages/Feed";
+import Chat from "./pages/Chat";
+import Profile from "./pages/Profile";
+import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +31,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify" element={<Verify />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/about" element={<About />} />
           <Route path="/storage/private" element={<StoragePrivate />} />
@@ -35,7 +39,8 @@ const App = () => (
           <Route path="/ai-assistant" element={<AIAssistant />} />
           <Route path="/converter" element={<Converter />} />
           <Route path="/feed" element={<Feed />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/profile/:username" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
