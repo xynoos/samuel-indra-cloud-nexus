@@ -9,14 +9,17 @@ import {
   MessageCircle, 
   Bot, 
   RefreshCw,
-  BarChart3,
   Settings,
   User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
 
 const Navigation = () => {
   const location = useLocation();
+  const { user } = useAuth();
+  const { data: profile } = useProfile();
 
   const navigationItems = [
     { path: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -62,6 +65,11 @@ const Navigation = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            {user && (
+              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
+                <span>Welcome, {profile?.username || 'User'}</span>
+              </div>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -69,15 +77,17 @@ const Navigation = () => {
             >
               <Settings className="w-4 h-4" />
             </Button>
-            <Link to="/profile/samuel">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-600 hover:text-blue-600"
-              >
-                <User className="w-4 h-4" />
-              </Button>
-            </Link>
+            {profile && (
+              <Link to={`/profile/${profile.username}`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 hover:text-blue-600"
+                >
+                  <User className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>

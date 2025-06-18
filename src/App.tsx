@@ -4,6 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ImageKitProvider } from "@/components/common/ImageKitProvider";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -27,22 +30,54 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/verify" element={<Verify />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/storage/private" element={<StoragePrivate />} />
-          <Route path="/storage/shared" element={<StorageShared />} />
-          <Route path="/ai-assistant" element={<AIAssistant />} />
-          <Route path="/converter" element={<Converter />} />
-          <Route path="/feed" element={<Feed />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/profile/:username" element={<Profile />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <ImageKitProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/verify" element={<Verify />} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/storage/private" element={
+                <ProtectedRoute>
+                  <StoragePrivate />
+                </ProtectedRoute>
+              } />
+              <Route path="/storage/shared" element={
+                <ProtectedRoute>
+                  <StorageShared />
+                </ProtectedRoute>
+              } />
+              <Route path="/ai-assistant" element={
+                <ProtectedRoute>
+                  <AIAssistant />
+                </ProtectedRoute>
+              } />
+              <Route path="/converter" element={
+                <ProtectedRoute>
+                  <Converter />
+                </ProtectedRoute>
+              } />
+              <Route path="/feed" element={
+                <ProtectedRoute>
+                  <Feed />
+                </ProtectedRoute>
+              } />
+              <Route path="/chat" element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile/:username" element={<Profile />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ImageKitProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

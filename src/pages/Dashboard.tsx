@@ -9,23 +9,73 @@ import {
   Download, 
   Activity, 
   Smartphone,
-  Calendar,
-  BarChart3
+  BarChart3,
+  LogOut
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import Navigation from '@/components/Navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { useFiles } from '@/hooks/useFiles';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
+  const { user, signOut } = useAuth();
+  const { data: profile } = useProfile();
+  const { data: privateFiles = [] } = useFiles(false);
+  const { data: publicFiles = [] } = useFiles(true);
+
+  // Get user sessions for login history
+  const { data: sessions = [] } = useQuery({
+    queryKey: ['user_sessions', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Calculate storage usage
+  const totalStorageUsed = privateFiles.reduce((acc, file) => acc + (file.file_size || 0), 0);
+  const storageInGB = totalStorageUsed / (1024 * 1024 * 1024);
+  const storageLimit = 10; // 10GB limit
+  const storagePercentage = (storageInGB / storageLimit) * 100;
+
+  const userContributedFiles = publicFiles.filter(file => file.user_id === user?.id);
+  const contributedStorageInGB = userContributedFiles.reduce((acc, file) => acc + (file.file_size || 0), 0) / (1024 * 1024 * 1024);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <Navigation />
       
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Selamat datang kembali! Berikut ringkasan akun Anda.</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard</h1>
+            <p className="text-gray-600">
+              Selamat datang kembali, {profile?.full_name || 'User'}!
+            </p>
+          </div>
+          <Button 
+            onClick={signOut}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </Button>
         </div>
 
         {/* Quick Stats */}
@@ -38,9 +88,13 @@ const Dashboard = () => {
               <HardDrive className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">2.4 GB</div>
-              <Progress value={24} className="mt-2" />
-              <p className="text-xs text-gray-500 mt-1">24% dari 10 GB</p>
+              <div className="text-2xl font-bold text-gray-800">
+                {storageInGB.toFixed(1)} GB
+              </div>
+              <Progress value={storagePercentage} className="mt-2" />
+              <p className="text-xs text-gray-500 mt-1">
+                {storagePercentage.toFixed(1)}% dari {storageLimit} GB
+              </p>
             </CardContent>
           </Card>
 
@@ -52,21 +106,10 @@ const Dashboard = () => {
               <Users className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">1.2 GB</div>
+              <div className="text-2xl font-bold text-gray-800">
+                {contributedStorageInGB.toFixed(1)} GB
+              </div>
               <p className="text-xs text-gray-500">Kontribusi Anda</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                AI Queries
-              </CardTitle>
-              <Bot className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-800">47</div>
-              <p className="text-xs text-gray-500">Bulan ini</p>
             </CardContent>
           </Card>
 
@@ -78,8 +121,25 @@ const Dashboard = () => {
               <BarChart3 className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">156</div>
+              <div className="text-2xl font-bold text-gray-800">
+                {privateFiles.length}
+              </div>
               <p className="text-xs text-gray-500">Files tersimpan</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/60 backdrop-blur-sm border-white/20">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Public Files
+              </CardTitle>
+              <Bot className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-800">
+                {userContributedFiles.length}
+              </div>
+              <p className="text-xs text-gray-500">Files dibagikan</p>
             </CardContent>
           </Card>
         </div>
@@ -148,27 +208,20 @@ const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <div className="text-sm">
-                    <p className="text-gray-800">Upload foto.jpg</p>
-                    <p className="text-gray-500 text-xs">2 jam lalu</p>
+                {privateFiles.slice(0, 3).map((file, index) => (
+                  <div key={file.id} className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="text-sm">
+                      <p className="text-gray-800">Upload {file.original_name}</p>
+                      <p className="text-gray-500 text-xs">
+                        {new Date(file.created_at).toLocaleDateString('id-ID')}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <div className="text-sm">
-                    <p className="text-gray-800">AI Chat session</p>
-                    <p className="text-gray-500 text-xs">5 jam lalu</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <div className="text-sm">
-                    <p className="text-gray-800">Shared file to group</p>
-                    <p className="text-gray-500 text-xs">1 hari lalu</p>
-                  </div>
-                </div>
+                ))}
+                {privateFiles.length === 0 && (
+                  <p className="text-gray-500 text-sm">Belum ada aktivitas</p>
+                )}
               </CardContent>
             </Card>
 
@@ -176,22 +229,32 @@ const Dashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Smartphone className="h-5 w-5" />
-                  <span>Info Perangkat</span>
+                  <span>Riwayat Login</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Login terakhir</span>
-                  <span className="text-sm font-medium">Chrome Desktop</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Lokasi</span>
-                  <span className="text-sm font-medium">Jakarta, ID</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Waktu</span>
-                  <span className="text-sm font-medium">2 jam lalu</span>
-                </div>
+                {sessions.slice(0, 3).map((session, index) => (
+                  <div key={session.id} className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Perangkat</span>
+                      <span className="text-sm font-medium">{session.device_info || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Lokasi</span>
+                      <span className="text-sm font-medium">{session.location || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Waktu</span>
+                      <span className="text-sm font-medium">
+                        {new Date(session.created_at).toLocaleDateString('id-ID')}
+                      </span>
+                    </div>
+                    {index < sessions.length - 1 && <hr className="my-2" />}
+                  </div>
+                ))}
+                {sessions.length === 0 && (
+                  <p className="text-gray-500 text-sm">Belum ada riwayat login</p>
+                )}
               </CardContent>
             </Card>
           </div>
