@@ -15,8 +15,22 @@ interface ImageKitProviderProps {
 }
 
 export const ImageKitProvider: React.FC<ImageKitProviderProps> = ({ children }) => {
+  const authenticator = async () => {
+    try {
+      const response = await fetch(IMAGEKIT_CONFIG.authenticationEndpoint);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Request failed with status ${response.status}: ${errorText}`);
+      }
+      const data = await response.json();
+      const { signature, expire, token } = data;
+      return { signature, expire, token };
+    } catch (error) {
+      throw new Error(`Authentication request failed: ${error.message}`);
+    }
+  };
+
   const uploadFile = async (file: File, fileName: string) => {
-    // This will be handled by IKUpload component
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append('file', file);
@@ -48,7 +62,7 @@ export const ImageKitProvider: React.FC<ImageKitProviderProps> = ({ children }) 
     <IKContext
       publicKey={IMAGEKIT_CONFIG.publicKey}
       urlEndpoint={IMAGEKIT_CONFIG.urlEndpoint}
-      authenticationEndpoint={IMAGEKIT_CONFIG.authenticationEndpoint}
+      authenticator={authenticator}
     >
       <ImageKitCustomContext.Provider value={{ uploadFile, getImageUrl }}>
         {children}
