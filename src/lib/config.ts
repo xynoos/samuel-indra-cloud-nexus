@@ -7,6 +7,13 @@ export const IMAGEKIT_CONFIG = {
 };
 
 export const API_CONFIG = {
+  backend: {
+    url: 'http://localhost:3001',
+    endpoints: {
+      verifyOTP: '/api/verify-otp',
+      sendEmail: '/api/send-email'
+    }
+  },
   openRouter: {
     apiKey: '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',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions'
