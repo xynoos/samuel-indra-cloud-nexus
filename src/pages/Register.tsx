@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Cloud, User, Mail, Lock, Eye, EyeOff, UserCheck } from 'lucide-react';
+import { Cloud, User, Mail, Lock, Eye, EyeOff, UserCheck, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,8 +20,24 @@ const Register = () => {
     password: ''
   });
 
+  // Password validation criteria
+  const passwordCriteria = {
+    minLength: formData.password.length >= 8,
+    hasUppercase: /[A-Z]/.test(formData.password),
+    hasLowercase: /[a-z]/.test(formData.password),
+    hasNumber: /\d/.test(formData.password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
+  };
+
+  const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isPasswordValid) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -148,12 +164,41 @@ const Register = () => {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+
+                {/* Password Criteria */}
+                {formData.password && (
+                  <div className="mt-3 p-3 bg-white/30 rounded-lg backdrop-blur-sm">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Kriteria Password:</p>
+                    <div className="space-y-1">
+                      <div className={`flex items-center text-xs ${passwordCriteria.minLength ? 'text-green-600' : 'text-red-500'}`}>
+                        {passwordCriteria.minLength ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                        Minimal 8 karakter
+                      </div>
+                      <div className={`flex items-center text-xs ${passwordCriteria.hasUppercase ? 'text-green-600' : 'text-red-500'}`}>
+                        {passwordCriteria.hasUppercase ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                        Huruf besar (A-Z)
+                      </div>
+                      <div className={`flex items-center text-xs ${passwordCriteria.hasLowercase ? 'text-green-600' : 'text-red-500'}`}>
+                        {passwordCriteria.hasLowercase ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                        Huruf kecil (a-z)
+                      </div>
+                      <div className={`flex items-center text-xs ${passwordCriteria.hasNumber ? 'text-green-600' : 'text-red-500'}`}>
+                        {passwordCriteria.hasNumber ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                        Angka (0-9)
+                      </div>
+                      <div className={`flex items-center text-xs ${passwordCriteria.hasSpecialChar ? 'text-green-600' : 'text-red-500'}`}>
+                        {passwordCriteria.hasSpecialChar ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                        Karakter khusus (!@#$%^&*)
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                disabled={loading || !isPasswordValid}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50"
               >
                 {loading ? (
                   <div className="flex items-center">

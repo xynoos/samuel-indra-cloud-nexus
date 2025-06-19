@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { API_CONFIG } from '@/lib/config';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { sendOTPEmail, validateOTP } from '@/utils/emailService';
 
 const Verify = () => {
   const navigate = useNavigate();
@@ -14,22 +16,32 @@ const Verify = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const { toast } = useToast();
+  const { currentOTP, setCurrentOTP } = useAuth();
   
   const email = searchParams.get('email') || '';
-  const autoCode = searchParams.get('code') || '';
 
   useEffect(() => {
-    if (autoCode) {
-      setVerificationCode(autoCode);
-      handleVerify(autoCode);
+    if (!email) {
+      navigate('/register');
+      return;
     }
-  }, [autoCode]);
 
-  const handleVerify = async (code?: string) => {
-    const codeToVerify = code || verificationCode;
-    
-    if (!codeToVerify || codeToVerify.length !== 6) {
+    // Check if there's pending user data
+    const pendingUserData = sessionStorage.getItem('pendingUser');
+    if (!pendingUserData) {
+      toast({
+        title: "Sesi verifikasi tidak valid",
+        description: "Silakan daftar ulang",
+        variant: "destructive",
+      });
+      navigate('/register');
+    }
+  }, [email, navigate, toast]);
+
+  const handleVerify = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
       toast({
         title: "Kode tidak valid",
         description: "Masukkan kode verifikasi 6 digit",
@@ -41,31 +53,54 @@ const Verify = () => {
     setIsVerifying(true);
 
     try {
-      const response = await fetch(`${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.verifyOTP}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          otp: codeToVerify
-        }),
+      const pendingUserData = sessionStorage.getItem('pendingUser');
+      if (!pendingUserData) {
+        throw new Error('Data pendaftaran tidak ditemukan');
+      }
+
+      const userData = JSON.parse(pendingUserData);
+      
+      // Validate OTP
+      if (!validateOTP(verificationCode, userData.otp)) {
+        throw new Error('Kode verifikasi tidak valid');
+      }
+
+      // Check OTP expiry (5 minutes)
+      const otpAge = Date.now() - userData.timestamp;
+      if (otpAge > 5 * 60 * 1000) {
+        throw new Error('Kode verifikasi sudah kedaluwarsa');
+      }
+
+      // Create user account in Supabase
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            username: userData.username,
+            full_name: userData.fullName,
+          }
+        }
       });
 
-      if (response.ok) {
-        setIsVerified(true);
-        toast({
-          title: "Email berhasil diverifikasi!",
-          description: "Anda akan diarahkan ke halaman login",
-        });
-        
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      } else {
-        const error = await response.json();
-        throw new Error(error.message || 'Verifikasi gagal');
+      if (signUpError) {
+        throw signUpError;
       }
+
+      // Clear temporary data
+      sessionStorage.removeItem('pendingUser');
+      setCurrentOTP(null);
+      setIsVerified(true);
+
+      toast({
+        title: "Email berhasil diverifikasi!",
+        description: "Akun Anda telah dibuat. Anda akan diarahkan ke halaman login",
+      });
+      
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+
     } catch (error) {
       toast({
         title: "Verifikasi gagal",
@@ -78,27 +113,47 @@ const Verify = () => {
   };
 
   const resendCode = async () => {
+    setIsResending(true);
+    
     try {
-      const response = await fetch(`${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.sendEmail}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
+      const pendingUserData = sessionStorage.getItem('pendingUser');
+      if (!pendingUserData) {
+        throw new Error('Data pendaftaran tidak ditemukan');
+      }
+
+      const userData = JSON.parse(pendingUserData);
+      
+      // Generate new OTP
+      const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Send new OTP email
+      await sendOTPEmail({
+        email: userData.email,
+        fullName: userData.fullName,
+        otp: newOTP
       });
 
-      if (response.ok) {
-        toast({
-          title: "Kode verifikasi dikirim ulang",
-          description: "Periksa email Anda",
-        });
-      }
+      // Update stored data with new OTP
+      const updatedUserData = {
+        ...userData,
+        otp: newOTP,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem('pendingUser', JSON.stringify(updatedUserData));
+      setCurrentOTP(newOTP);
+
+      toast({
+        title: "Kode verifikasi baru terkirim",
+        description: "Periksa email Anda untuk kode yang baru",
+      });
     } catch (error) {
       toast({
         title: "Gagal mengirim ulang",
         description: "Silakan coba lagi",
         variant: "destructive",
       });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -107,12 +162,12 @@ const Verify = () => {
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center px-4">
         <Card className="w-full max-w-md bg-white/60 backdrop-blur-lg border-white/20 shadow-xl">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4 animate-bounce" />
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
               Email Terverifikasi!
             </h2>
             <p className="text-gray-600">
-              Anda akan diarahkan ke halaman login...
+              Akun Anda telah berhasil dibuat. Anda akan diarahkan ke halaman login...
             </p>
           </CardContent>
         </Card>
@@ -139,25 +194,26 @@ const Verify = () => {
               <span>Verifikasi Email</span>
             </CardTitle>
             <p className="text-gray-600">
-              Masukkan kode verifikasi yang dikirim ke: <strong>{email}</strong>
+              Masukkan kode verifikasi 6 digit yang dikirim ke: <br />
+              <strong className="text-blue-600">{email}</strong>
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
               <Input
                 type="text"
-                placeholder="Masukkan kode 6 digit"
+                placeholder="000000"
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="text-center text-2xl font-mono bg-white/50 border-white/20"
+                className="text-center text-2xl font-mono bg-white/50 border-white/20 tracking-widest"
               />
             </div>
 
             <Button
-              onClick={() => handleVerify()}
+              onClick={handleVerify}
               disabled={isVerifying || verificationCode.length !== 6}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50"
             >
               {isVerifying ? (
                 <>
@@ -179,10 +235,15 @@ const Verify = () => {
               <Button
                 variant="outline"
                 onClick={resendCode}
+                disabled={isResending}
                 className="border-blue-200 hover:bg-blue-50"
               >
-                Kirim Ulang Kode
+                {isResending ? 'Mengirim...' : 'Kirim Ulang Kode'}
               </Button>
+            </div>
+
+            <div className="text-xs text-gray-500 text-center">
+              Kode verifikasi berlaku selama 5 menit
             </div>
           </CardContent>
         </Card>
@@ -190,10 +251,10 @@ const Verify = () => {
         <div className="text-center mt-6">
           <Button
             variant="ghost"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/register')}
             className="text-gray-600 hover:text-gray-800"
           >
-            ← Kembali ke Login
+            ← Kembali ke Pendaftaran
           </Button>
         </div>
       </div>

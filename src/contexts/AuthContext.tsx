@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { sendOTPEmail, generateOTP } from '@/utils/emailService';
 
 interface AuthContextType {
   user: User | null;
@@ -11,6 +12,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, username: string, fullName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  currentOTP: string | null;
+  setCurrentOTP: (otp: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentOTP, setCurrentOTP] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -93,33 +97,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, username: string, fullName: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/verify`,
-          data: {
-            username,
-            full_name: fullName,
-          }
-        }
-      });
+      // Generate OTP for verification
+      const otp = generateOTP();
+      setCurrentOTP(otp);
 
-      if (error) {
+      // Send OTP email first
+      try {
+        await sendOTPEmail({
+          email,
+          fullName,
+          otp
+        });
+      } catch (emailError) {
         toast({
-          title: "Registrasi gagal",
-          description: error.message,
+          title: "Gagal mengirim email",
+          description: "Tidak dapat mengirim kode verifikasi. Silakan coba lagi.",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "Registrasi berhasil!",
-          description: "Silakan cek email untuk verifikasi",
-        });
+        return { error: emailError };
       }
 
-      return { error };
+      // Store user data temporarily (in real app, this should be in secure storage)
+      sessionStorage.setItem('pendingUser', JSON.stringify({
+        email,
+        password,
+        username,
+        fullName,
+        otp,
+        timestamp: Date.now()
+      }));
+
+      toast({
+        title: "Kode verifikasi terkirim!",
+        description: "Silakan cek email Anda dan masukkan kode verifikasi",
+      });
+
+      return { error: null };
     } catch (error) {
+      toast({
+        title: "Registrasi gagal",
+        description: "Terjadi kesalahan saat mendaftar",
+        variant: "destructive",
+      });
       return { error };
     }
   };
@@ -141,6 +160,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    currentOTP,
+    setCurrentOTP,
   };
 
   return (
