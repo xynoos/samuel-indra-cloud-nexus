@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { signUp } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -17,12 +20,27 @@ const Register = () => {
     password: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual registration logic
-    console.log('Registration attempt:', formData);
-    // For now, navigate to login
-    navigate('/login');
+    setLoading(true);
+
+    try {
+      const { error } = await signUp(
+        formData.email, 
+        formData.password, 
+        formData.username, 
+        formData.fullName
+      );
+
+      if (!error) {
+        // Redirect to verification page with email parameter
+        navigate(`/verify?email=${encodeURIComponent(formData.email)}`);
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,9 +152,17 @@ const Register = () => {
 
               <Button
                 type="submit"
+                disabled={loading}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                Daftar Sekarang
+                {loading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Mendaftar...
+                  </div>
+                ) : (
+                  'Daftar Sekarang'
+                )}
               </Button>
             </form>
 
