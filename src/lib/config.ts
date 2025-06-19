@@ -8,10 +8,12 @@ export const IMAGEKIT_CONFIG = {
 
 export const API_CONFIG = {
   backend: {
-    url: 'http://localhost:3001',
+    url: process.env.NODE_ENV === 'production' 
+      ? 'https://your-backend-url.com' // Replace with your actual production backend URL
+      : 'http://localhost:3001',
     endpoints: {
       verifyOTP: '/api/verify-otp',
-      sendEmail: '/api/send-email'
+      sendEmail: '/api/send-otp-email'
     }
   },
   openRouter: {

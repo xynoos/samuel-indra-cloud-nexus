@@ -37,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -61,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -99,13 +101,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Starting signup process for:', email);
       
+      // Check if backend is reachable first
+      try {
+        const healthCheck = await fetch(`${API_CONFIG.backend.url}/health`);
+        if (!healthCheck.ok) {
+          throw new Error('Backend server tidak dapat diakses');
+        }
+        console.log('Backend health check passed');
+      } catch (healthError) {
+        console.error('Backend health check failed:', healthError);
+        toast({
+          title: "Server tidak tersedia",
+          description: "Pastikan backend server berjalan di port 3001. Periksa console untuk detail lebih lanjut.",
+          variant: "destructive",
+        });
+        return { error: healthError };
+      }
+      
       // Generate OTP for verification
       const otp = generateOTP();
       setCurrentOTP(otp);
       
-      console.log('Generated OTP:', otp);
+      console.log('Generated OTP for verification');
 
-      // Send OTP email first
+      // Send OTP email
       try {
         console.log('Sending OTP email...');
         const emailResult = await sendOTPEmail({
@@ -117,14 +136,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
         toast({
-          title: "Gagal mengirim email",
-          description: emailError instanceof Error ? emailError.message : "Tidak dapat mengirim kode verifikasi. Silakan coba lagi.",
+          title: "Gagal mengirim email verifikasi",
+          description: emailError instanceof Error ? emailError.message : "Tidak dapat mengirim kode verifikasi. Periksa koneksi internet dan pengaturan server.",
           variant: "destructive",
         });
         return { error: emailError };
       }
 
-      // Store user data temporarily (in real app, this should be in secure storage)
+      // Store user data temporarily
       const userData = {
         email,
         password,
@@ -134,12 +153,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timestamp: Date.now()
       };
       
-      sessionStorage.setItem('pendingUser', JSON.stringify(userData));
-      console.log('User data stored in session storage');
+      try {
+        sessionStorage.setItem('pendingUser', JSON.stringify(userData));
+        console.log('User data stored in session storage');
+      } catch (storageError) {
+        console.error('Failed to store user data:', storageError);
+        toast({
+          title: "Error penyimpanan",
+          description: "Gagal menyimpan data sementara",
+          variant: "destructive",
+        });
+        return { error: storageError };
+      }
 
       toast({
         title: "Kode verifikasi terkirim!",
-        description: "Silakan cek email Anda dan masukkan kode verifikasi",
+        description: `Silakan cek email ${email} dan masukkan kode verifikasi 6 digit`,
       });
 
       return { error: null };
@@ -147,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Signup error:', error);
       toast({
         title: "Registrasi gagal",
-        description: "Terjadi kesalahan saat mendaftar",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat mendaftar",
         variant: "destructive",
       });
       return { error };

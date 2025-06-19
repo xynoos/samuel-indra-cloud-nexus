@@ -6,50 +6,91 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Enhanced CORS configuration
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:3000', 'https://preview--samuel-indra-cloud-nexus.lovable.app'],
-  credentials: true
+  origin: [
+    'http://localhost:8080', 
+    'http://localhost:3000', 
+    'https://preview--samuel-indra-cloud-nexus.lovable.app',
+    /\.lovable\.app$/,
+    /\.lovableproject\.com$/
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Increase payload limits
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Enable detailed logging
+// Enhanced logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  const timestamp = new Date().toISOString();
+  console.log(`${timestamp} - ${req.method} ${req.path}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+  }
   next();
 });
 
-// Health check endpoint
+// Health check endpoint with detailed info
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  const healthInfo = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0'
+  };
+  console.log('Health check requested:', healthInfo);
+  res.json(healthInfo);
 });
 
 // Auth routes
 app.use('/api', authRoutes);
 
-// Error handling middleware
+// Enhanced error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
+  console.error('Server error details:', {
+    message: err.message,
+    stack: err.stack,
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method
+  });
+  
   res.status(500).json({ 
     success: false, 
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
   });
 });
 
-// 404 handler
+// Enhanced 404 handler
 app.use('*', (req, res) => {
-  console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
+  const errorInfo = {
+    message: 'Endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  };
+  console.log('404 - Route not found:', errorInfo);
   res.status(404).json({ 
     success: false, 
-    message: 'Endpoint not found' 
+    ...errorInfo
   });
 });
 
 app.listen(PORT, () => {
+  console.log('='.repeat(50));
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📧 Email service ready with Gmail SMTP`);
   console.log(`🔐 Auth endpoints available at /api`);
-  console.log(`📝 Gmail credentials: ${process.env.GMAIL_USER || 'renungankristensite@gmail.com'}`);
+  console.log(`📝 Gmail user: ${process.env.GMAIL_USER || 'renungankristensite@gmail.com'}`);
+  console.log(`🌐 CORS enabled for development and production domains`);
+  console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('='.repeat(50));
 });
