@@ -25,11 +25,15 @@ export const sendOTPEmail = async ({ email, fullName, otp }: SendOTPEmailData) =
       }),
     });
 
+    const result = await response.json();
+    
     if (!response.ok) {
-      throw new Error('Failed to send OTP email');
+      console.error('Email service error:', result);
+      throw new Error(result.message || 'Failed to send OTP email');
     }
 
-    return await response.json();
+    console.log('Email sent successfully:', result);
+    return result;
   } catch (error) {
     console.error('Error sending OTP email:', error);
     throw error;

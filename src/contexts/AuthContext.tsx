@@ -97,35 +97,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, username: string, fullName: string) => {
     try {
+      console.log('Starting signup process for:', email);
+      
       // Generate OTP for verification
       const otp = generateOTP();
       setCurrentOTP(otp);
+      
+      console.log('Generated OTP:', otp);
 
       // Send OTP email first
       try {
-        await sendOTPEmail({
+        console.log('Sending OTP email...');
+        const emailResult = await sendOTPEmail({
           email,
           fullName,
           otp
         });
+        console.log('Email sent successfully:', emailResult);
       } catch (emailError) {
+        console.error('Email sending failed:', emailError);
         toast({
           title: "Gagal mengirim email",
-          description: "Tidak dapat mengirim kode verifikasi. Silakan coba lagi.",
+          description: emailError instanceof Error ? emailError.message : "Tidak dapat mengirim kode verifikasi. Silakan coba lagi.",
           variant: "destructive",
         });
         return { error: emailError };
       }
 
       // Store user data temporarily (in real app, this should be in secure storage)
-      sessionStorage.setItem('pendingUser', JSON.stringify({
+      const userData = {
         email,
         password,
         username,
         fullName,
         otp,
         timestamp: Date.now()
-      }));
+      };
+      
+      sessionStorage.setItem('pendingUser', JSON.stringify(userData));
+      console.log('User data stored in session storage');
 
       toast({
         title: "Kode verifikasi terkirim!",
@@ -134,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { error: null };
     } catch (error) {
+      console.error('Signup error:', error);
       toast({
         title: "Registrasi gagal",
         description: "Terjadi kesalahan saat mendaftar",

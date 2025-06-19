@@ -3,13 +3,21 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const router = express.Router();
 
-// Configure Gmail SMTP transporter
+// Configure Gmail SMTP transporter with better error handling
 const createTransporter = (smtpConfig) => {
+  console.log('Creating transporter with config:', { user: smtpConfig.user, pass: '***' });
+  
   return nodemailer.createTransporter({
     service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
     auth: {
       user: smtpConfig.user,
       pass: smtpConfig.pass
+    },
+    tls: {
+      rejectUnauthorized: false
     }
   });
 };
@@ -18,15 +26,38 @@ const createTransporter = (smtpConfig) => {
 router.post('/send-otp-email', async (req, res) => {
   try {
     const { email, fullName, otp, smtpConfig } = req.body;
+    
+    console.log('Received email request:', { email, fullName, otp: '***', smtpConfig: { user: smtpConfig?.user, pass: '***' } });
 
     if (!email || !fullName || !otp || !smtpConfig) {
+      console.error('Missing required fields:', { email: !!email, fullName: !!fullName, otp: !!otp, smtpConfig: !!smtpConfig });
       return res.status(400).json({ 
         success: false, 
         message: 'Missing required fields' 
       });
     }
 
+    if (!smtpConfig.user || !smtpConfig.pass) {
+      console.error('Missing SMTP credentials');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing SMTP credentials' 
+      });
+    }
+
     const transporter = createTransporter(smtpConfig);
+
+    // Verify SMTP connection
+    try {
+      await transporter.verify();
+      console.log('SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('SMTP verification failed:', verifyError);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'SMTP configuration error: ' + verifyError.message
+      });
+    }
 
     const htmlContent = `
     <!DOCTYPE html>
@@ -53,7 +84,7 @@ router.post('/send-otp-email', async (req, res) => {
                 </p>
                 
                 <!-- OTP Code -->
-                <div style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 10px; padding: 30px;; text-align: center; margin: 30px 0; border: 2px dashed #6366f1;">
+                <div style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 10px; padding: 30px; text-align: center; margin: 30px 0; border: 2px dashed #6366f1;">
                     <div style="color: #1f2937; font-size: 14px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">KODE VERIFIKASI</div>
                     <div style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</div>
                     <div style="color: #6b7280; font-size: 12px; margin-top: 10px;">Kode berlaku selama 5 menit</div>
@@ -96,9 +127,18 @@ router.post('/send-otp-email', async (req, res) => {
       text: `Halo ${fullName},\n\nKode verifikasi Anda untuk SamuelIndraBastian Cloud adalah: ${otp}\n\nKode ini berlaku selama 5 menit.\n\nJika Anda tidak mendaftar untuk layanan ini, abaikan email ini.\n\nTerima kasih,\nTim SamuelIndraBastian Cloud`
     };
 
+    console.log('Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+
     const info = await transporter.sendMail(mailOptions);
     
-    console.log('OTP Email sent successfully:', info.messageId);
+    console.log('OTP Email sent successfully:', {
+      messageId: info.messageId,
+      response: info.response
+    });
     
     res.json({ 
       success: true, 
@@ -107,11 +147,27 @@ router.post('/send-otp-email', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending OTP email:', error);
+    console.error('Error sending OTP email:', {
+      message: error.message,
+      code: error.code,
+      command: error.command
+    });
+    
+    let errorMessage = 'Failed to send OTP email';
+    
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Authentication failed. Please check Gmail credentials and enable "Less secure app access" or use App Password.';
+    } else if (error.code === 'ENOTFOUND') {
+      errorMessage = 'Network error. Please check internet connection.';
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = 'Connection timeout. Please try again.';
+    }
+    
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to send OTP email',
-      error: error.message 
+      message: errorMessage,
+      error: error.message,
+      code: error.code
     });
   }
 });
