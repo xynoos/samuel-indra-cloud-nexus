@@ -13,7 +13,8 @@ export const API_CONFIG = {
       : 'http://localhost:3001',
     endpoints: {
       verifyOTP: '/api/verify-otp',
-      sendEmail: '/api/send-otp-email'
+      sendEmail: '/api/send-otp-email',
+      health: '/health'
     }
   },
   openRouter: {
@@ -41,7 +42,6 @@ export const API_CONFIG = {
     user: 'renungankristensite@gmail.com',
     pass: 'zglq snms qjfs wtfy'
   },
-  // EmailJS configuration (alternative email service)
   emailjs: {
     serviceId: 'service_gmail',
     templateId: 'template_otp',

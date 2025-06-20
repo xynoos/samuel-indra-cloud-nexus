@@ -4,6 +4,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sendOTPEmail, generateOTP } from '@/utils/emailService';
+import { API_CONFIG } from '@/lib/config';
 
 interface AuthContextType {
   user: User | null;
@@ -33,7 +34,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentOTP, setCurrentOTP] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Check backend health on startup
+  const checkBackendHealth = async () => {
+    try {
+      const response = await fetch(`${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.health}`);
+      if (response.ok) {
+        const health = await response.json();
+        console.log('✅ Backend server is running:', health);
+        return true;
+      }
+    } catch (error) {
+      console.warn('⚠️ Backend server is not running. Emails will use simulation mode.');
+      return false;
+    }
+    return false;
+  };
+
   useEffect(() => {
+    // Check backend health
+    checkBackendHealth();
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -99,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, username: string, fullName: string) => {
     try {
-      console.log('Starting signup process for:', email);
+      console.log('🚀 Starting signup process for:', email);
       
       // First check if user already exists
       const { data: existingUser } = await supabase
@@ -122,27 +142,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const otp = generateOTP();
       setCurrentOTP(otp);
       
-      console.log('Generated OTP for verification:', otp);
+      console.log('📧 Generated OTP for verification:', otp);
+
+      // Check if backend is available
+      toast({
+        title: "Mengirim kode verifikasi...",
+        description: "Mohon tunggu sebentar",
+      });
 
       // Send OTP email
       try {
-        console.log('Sending OTP email...');
+        console.log('📤 Attempting to send OTP email...');
         const emailResult = await sendOTPEmail({
           email,
           fullName,
           otp
         });
-        console.log('Email sent successfully:', emailResult);
+        console.log('📧 Email service response:', emailResult);
 
         if (!emailResult.success) {
           throw new Error(emailResult.message || 'Gagal mengirim email verifikasi');
         }
+
+        // Show appropriate success message based on whether backend is running
+        if (emailResult.messageId?.startsWith('dev_sim_')) {
+          toast({
+            title: "⚠️ Mode Pengembangan",
+            description: `Backend tidak aktif. Kode OTP: ${otp}`,
+            duration: 10000,
+          });
+        } else {
+          toast({
+            title: "✅ Kode verifikasi terkirim!",
+            description: `Kode OTP telah dikirim ke ${email} via Gmail`,
+          });
+        }
+
       } catch (emailError) {
-        console.error('Email sending failed:', emailError);
+        console.error('❌ Email sending failed:', emailError);
         toast({
           title: "Gagal mengirim email verifikasi",
-          description: emailError instanceof Error ? emailError.message : "Tidak dapat mengirim kode verifikasi. Periksa koneksi internet Anda.",
+          description: emailError instanceof Error ? emailError.message : "Pastikan backend server berjalan di port 3001",
           variant: "destructive",
+          duration: 8000,
         });
         return { error: emailError };
       }
@@ -159,7 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         sessionStorage.setItem('pendingUser', JSON.stringify(userData));
-        console.log('User data stored in session storage');
+        console.log('💾 User data stored in session storage');
       } catch (storageError) {
         console.error('Failed to store user data:', storageError);
         toast({
@@ -169,11 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         return { error: storageError };
       }
-
-      toast({
-        title: "Kode verifikasi terkirim!",
-        description: `Kode OTP telah dikirim ke ${email}. Silakan cek email Anda.`,
-      });
 
       return { error: null };
     } catch (error) {

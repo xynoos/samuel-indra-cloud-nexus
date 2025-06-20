@@ -28,9 +28,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`${timestamp} - ${req.method} ${req.path}`);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Origin:', req.headers.origin);
   if (req.body && Object.keys(req.body).length > 0) {
-    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
   }
   next();
 });
@@ -45,9 +45,19 @@ app.get('/health', (req, res) => {
     version: '1.0.0',
     emailService: 'Gmail SMTP Ready',
     services: {
-      gmail: 'Connected',
+      gmail: {
+        configured: true,
+        user: 'renungankristensite@gmail.com',
+        status: 'Ready'
+      },
       smtp: 'Available'
-    }
+    },
+    endpoints: [
+      'GET /health',
+      'POST /api/send-otp-email',
+      'POST /api/verify-otp',
+      'POST /api/test-email'
+    ]
   };
   console.log('Health check requested:', healthInfo);
   res.json(healthInfo);
@@ -60,7 +70,11 @@ app.post('/api/test-email', async (req, res) => {
     res.json({
       success: true,
       message: 'Email service is ready',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      gmailConfig: {
+        user: 'renungankristensite@gmail.com',
+        configured: true
+      }
     });
   } catch (error) {
     console.error('Test email error:', error);
@@ -76,12 +90,13 @@ app.use('/api', authRoutes);
 
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Server error details:', {
+  console.error('🚨 Server error details:', {
     message: err.message,
     stack: err.stack,
     timestamp: new Date().toISOString(),
     path: req.path,
-    method: req.method
+    method: req.method,
+    origin: req.headers.origin
   });
   
   res.status(500).json({ 
@@ -114,20 +129,23 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log(`🚀 SamuelIndraBastian Cloud Backend Server`);
-  console.log(`📡 Server running on port ${PORT}`);
+  console.log('='.repeat(80));
+  console.log(`🚀 SamuelIndraBastian Cloud Backend Server STARTED`);
+  console.log(`📡 Server running on: http://localhost:${PORT}`);
   console.log(`📧 Gmail SMTP configured: renungankristensite@gmail.com`);
   console.log(`🔐 Auth endpoints available at /api`);
   console.log(`🌐 CORS enabled for development and production`);
   console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
   console.log(`📮 Test email: http://localhost:${PORT}/api/test-email`);
-  console.log('='.repeat(60));
-  console.log('Available endpoints:');
+  console.log('='.repeat(80));
+  console.log('📋 Available endpoints:');
   console.log('  GET  /health - Health check');
-  console.log('  POST /api/send-otp-email - Send OTP email');
-  console.log('  POST /api/verify-otp - Verify OTP');
+  console.log('  POST /api/send-otp-email - Send OTP email via Gmail');
+  console.log('  POST /api/verify-otp - Verify OTP code');
   console.log('  POST /api/test-email - Test email service');
-  console.log('='.repeat(60));
+  console.log('='.repeat(80));
+  console.log('🔥 Backend is ready to send real emails via Gmail SMTP!');
+  console.log('⚠️  Make sure to start this server before testing registration');
+  console.log('='.repeat(80));
 });
