@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,30 +102,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Starting signup process for:', email);
       
-      // Check if backend is reachable first
-      try {
-        const healthCheck = await fetch(`${API_CONFIG.backend.url}/health`);
-        if (!healthCheck.ok) {
-          throw new Error('Backend server tidak dapat diakses');
-        }
-        console.log('Backend health check passed');
-      } catch (healthError) {
-        console.error('Backend health check failed:', healthError);
-        toast({
-          title: "Server tidak tersedia",
-          description: "Pastikan backend server berjalan di port 3001. Periksa console untuk detail lebih lanjut.",
-          variant: "destructive",
-        });
-        return { error: healthError };
-      }
-      
       // Generate OTP for verification
       const otp = generateOTP();
       setCurrentOTP(otp);
       
       console.log('Generated OTP for verification');
 
-      // Send OTP email
+      // Send OTP email directly without backend health check
       try {
         console.log('Sending OTP email...');
         const emailResult = await sendOTPEmail({

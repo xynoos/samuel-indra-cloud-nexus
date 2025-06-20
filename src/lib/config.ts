@@ -9,7 +9,7 @@ export const IMAGEKIT_CONFIG = {
 export const API_CONFIG = {
   backend: {
     url: process.env.NODE_ENV === 'production' 
-      ? 'https://your-backend-url.com' // Replace with your actual production backend URL
+      ? 'https://your-backend-url.com' 
       : 'http://localhost:3001',
     endpoints: {
       verifyOTP: '/api/verify-otp',
@@ -28,5 +28,11 @@ export const API_CONFIG = {
   gmail: {
     user: 'renungankristensite@gmail.com',
     pass: 'zglq snms qjfs wtfy'
+  },
+  // EmailJS configuration (alternative email service)
+  emailjs: {
+    serviceId: 'service_gmail',
+    templateId: 'template_otp',
+    publicKey: 'your_emailjs_public_key'
   }
 };
