@@ -25,6 +25,18 @@ export const API_CONFIG = {
     textToImage: 'https://api.deepai.org/api/text2img',
     sentiment: 'https://api.deepai.org/api/sentiment-analysis'
   },
+  cloudConvert: {
+    apiKey: '', // User needs to provide this
+    baseUrl: 'https://api.cloudconvert.com/v2/convert'
+  },
+  convertApi: {
+    secret: '', // Alternative conversion API
+    baseUrl: 'https://v2.convertapi.com/convert'
+  },
+  tinyPng: {
+    apiKey: '', // User needs to provide this
+    baseUrl: 'https://api.tinify.com/shrink'
+  },
   gmail: {
     user: 'renungankristensite@gmail.com',
     pass: 'zglq snms qjfs wtfy'
