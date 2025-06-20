@@ -4,7 +4,6 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sendOTPEmail, generateOTP } from '@/utils/emailService';
-import { API_CONFIG } from '@/lib/config';
 
 interface AuthContextType {
   user: User | null;
@@ -102,13 +101,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Starting signup process for:', email);
       
+      // First check if user already exists
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .single();
+
+      if (existingUser) {
+        const error = new Error('Username sudah digunakan');
+        toast({
+          title: "Username tidak tersedia",
+          description: "Silakan pilih username lain",
+          variant: "destructive",
+        });
+        return { error };
+      }
+      
       // Generate OTP for verification
       const otp = generateOTP();
       setCurrentOTP(otp);
       
-      console.log('Generated OTP for verification');
+      console.log('Generated OTP for verification:', otp);
 
-      // Send OTP email directly without backend health check
+      // Send OTP email
       try {
         console.log('Sending OTP email...');
         const emailResult = await sendOTPEmail({
@@ -117,17 +133,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           otp
         });
         console.log('Email sent successfully:', emailResult);
+
+        if (!emailResult.success) {
+          throw new Error(emailResult.message || 'Gagal mengirim email verifikasi');
+        }
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
         toast({
           title: "Gagal mengirim email verifikasi",
-          description: emailError instanceof Error ? emailError.message : "Tidak dapat mengirim kode verifikasi. Periksa koneksi internet dan pengaturan server.",
+          description: emailError instanceof Error ? emailError.message : "Tidak dapat mengirim kode verifikasi. Periksa koneksi internet Anda.",
           variant: "destructive",
         });
         return { error: emailError };
       }
 
-      // Store user data temporarily
+      // Store user data temporarily in sessionStorage
       const userData = {
         email,
         password,
@@ -152,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       toast({
         title: "Kode verifikasi terkirim!",
-        description: `Silakan cek email ${email} dan masukkan kode verifikasi 6 digit`,
+        description: `Kode OTP telah dikirim ke ${email}. Silakan cek email Anda.`,
       });
 
       return { error: null };

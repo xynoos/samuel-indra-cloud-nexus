@@ -7,10 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Register = () => {
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -35,12 +37,28 @@ const Register = () => {
     e.preventDefault();
     
     if (!isPasswordValid) {
+      toast({
+        title: "Password tidak valid",
+        description: "Pastikan password memenuhi semua kriteria",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate form
+    if (!formData.fullName.trim() || !formData.username.trim() || !formData.email.trim()) {
+      toast({
+        title: "Form tidak lengkap",
+        description: "Mohon isi semua field yang diperlukan",
+        variant: "destructive",
+      });
       return;
     }
 
     setLoading(true);
 
     try {
+      console.log('Starting registration process...');
       const { error } = await signUp(
         formData.email, 
         formData.password, 
@@ -49,11 +67,24 @@ const Register = () => {
       );
 
       if (!error) {
+        console.log('Registration successful, redirecting to verification...');
         // Redirect to verification page with email parameter
         navigate(`/verify?email=${encodeURIComponent(formData.email)}`);
+      } else {
+        console.error('Registration error:', error);
+        toast({
+          title: "Registrasi gagal",
+          description: error.message || "Terjadi kesalahan saat mendaftar",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Registration error:', error);
+      toast({
+        title: "Registrasi gagal",
+        description: "Terjadi kesalahan sistem",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

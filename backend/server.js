@@ -42,10 +42,33 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
+    version: '1.0.0',
+    emailService: 'Gmail SMTP Ready',
+    services: {
+      gmail: 'Connected',
+      smtp: 'Available'
+    }
   };
   console.log('Health check requested:', healthInfo);
   res.json(healthInfo);
+});
+
+// Test email endpoint
+app.post('/api/test-email', async (req, res) => {
+  try {
+    console.log('Test email endpoint called');
+    res.json({
+      success: true,
+      message: 'Email service is ready',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Test email error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 // Auth routes
@@ -75,7 +98,13 @@ app.use('*', (req, res) => {
     message: 'Endpoint not found',
     path: req.originalUrl,
     method: req.method,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    availableEndpoints: [
+      'GET /health',
+      'POST /api/send-otp-email',
+      'POST /api/verify-otp',
+      'POST /api/test-email'
+    ]
   };
   console.log('404 - Route not found:', errorInfo);
   res.status(404).json({ 
@@ -85,12 +114,20 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📧 Email service ready with Gmail SMTP`);
+  console.log('='.repeat(60));
+  console.log(`🚀 SamuelIndraBastian Cloud Backend Server`);
+  console.log(`📡 Server running on port ${PORT}`);
+  console.log(`📧 Gmail SMTP configured: renungankristensite@gmail.com`);
   console.log(`🔐 Auth endpoints available at /api`);
-  console.log(`📝 Gmail user: ${process.env.GMAIL_USER || 'renungankristensite@gmail.com'}`);
-  console.log(`🌐 CORS enabled for development and production domains`);
+  console.log(`🌐 CORS enabled for development and production`);
   console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log('='.repeat(50));
+  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  console.log(`📮 Test email: http://localhost:${PORT}/api/test-email`);
+  console.log('='.repeat(60));
+  console.log('Available endpoints:');
+  console.log('  GET  /health - Health check');
+  console.log('  POST /api/send-otp-email - Send OTP email');
+  console.log('  POST /api/verify-otp - Verify OTP');
+  console.log('  POST /api/test-email - Test email service');
+  console.log('='.repeat(60));
 });

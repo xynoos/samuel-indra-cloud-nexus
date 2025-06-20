@@ -71,8 +71,10 @@ const Verify = () => {
         throw new Error('Kode verifikasi sudah kedaluwarsa');
       }
 
+      console.log('OTP verified, creating user account...');
+
       // Create user account in Supabase
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
@@ -84,8 +86,11 @@ const Verify = () => {
       });
 
       if (signUpError) {
+        console.error('Supabase signup error:', signUpError);
         throw signUpError;
       }
+
+      console.log('User created successfully:', authData);
 
       // Clear temporary data
       sessionStorage.removeItem('pendingUser');
@@ -102,6 +107,7 @@ const Verify = () => {
       }, 2000);
 
     } catch (error) {
+      console.error('Verification error:', error);
       toast({
         title: "Verifikasi gagal",
         description: error instanceof Error ? error.message : "Terjadi kesalahan",
@@ -127,11 +133,15 @@ const Verify = () => {
       const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
       
       // Send new OTP email
-      await sendOTPEmail({
+      const emailResult = await sendOTPEmail({
         email: userData.email,
         fullName: userData.fullName,
         otp: newOTP
       });
+
+      if (!emailResult.success) {
+        throw new Error(emailResult.message || 'Gagal mengirim email');
+      }
 
       // Update stored data with new OTP
       const updatedUserData = {
@@ -147,9 +157,10 @@ const Verify = () => {
         description: "Periksa email Anda untuk kode yang baru",
       });
     } catch (error) {
+      console.error('Resend error:', error);
       toast({
         title: "Gagal mengirim ulang",
-        description: "Silakan coba lagi",
+        description: error instanceof Error ? error.message : "Silakan coba lagi",
         variant: "destructive",
       });
     } finally {
