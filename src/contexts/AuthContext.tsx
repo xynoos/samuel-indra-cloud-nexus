@@ -1,9 +1,9 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sendOTPEmail, generateOTP } from '@/utils/emailService';
+import { API_CONFIG } from '@/lib/config';
 
 interface AuthContextType {
   user: User | null;
