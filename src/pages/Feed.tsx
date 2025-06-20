@@ -1,211 +1,304 @@
 
-import React, { useState } from 'react';
-import { 
-  Heart, 
-  MessageSquare, 
-  Share, 
-  MoreHorizontal,
-  Image as ImageIcon,
-  Video,
-  Plus,
-  Send
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, Users, Hash, Search, Filter } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
-import Navigation from '@/components/Navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { CreatePost } from '@/components/feed/CreatePost';
+import { PostCard } from '@/components/feed/PostCard';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const Feed = () => {
-  const [newPost, setNewPost] = useState('');
+  const { user } = useAuth();
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
-  // Mock data for feed posts
-  const posts = [
+  const mockPosts = [
     {
-      id: 1,
-      user: { name: 'John Doe', username: 'johndoe', avatar: '', initials: 'JD' },
-      content: 'Baru saja menyelesaikan project AI terbaru! Sangat excited dengan hasilnya. Ada yang mau collaborate untuk project selanjutnya?',
-      image: null,
-      timestamp: '2 jam lalu',
-      likes: 24,
-      comments: 8,
-      shares: 3,
-      liked: false
+      id: '1',
+      content: 'Selamat pagi semua! 🌅 Hari ini adalah hari yang indah untuk berbagi dan belajar bersama. Mari kita dukung satu sama lain dalam perjalanan ini! #MorningMotivation #Community',
+      media_urls: [],
+      media_type: null,
+      likes_count: 24,
+      comments_count: 8,
+      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      user_id: '1',
+      profiles: {
+        username: 'samuelindra',
+        full_name: 'Samuel Indra Bastian',
+        avatar_url: null
+      }
     },
     {
-      id: 2,
-      user: { name: 'Jane Smith', username: 'janesmith', avatar: '', initials: 'JS' },
-      content: 'Sharing beberapa tips untuk mengoptimalkan storage di cloud. Jangan lupa untuk regularly clean up file yang tidak terpakai!',
-      image: '/api/placeholder/500/300',
-      timestamp: '4 jam lalu',
-      likes: 45,
-      comments: 12,
-      shares: 7,
-      liked: true
+      id: '2',
+      content: 'Baru saja selesai upload project terbaru ke cloud storage! 🚀 Fitur AI Assistant-nya benar-benar membantu produktivitas. Terima kasih untuk platform yang luar biasa ini!',
+      media_urls: ['sample-image-1.jpg'],
+      media_type: 'image/jpeg',
+      likes_count: 42,
+      comments_count: 15,
+      created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+      user_id: '2',
+      profiles: {
+        username: 'techuser',
+        full_name: 'Tech Enthusiast',
+        avatar_url: null
+      }
     },
     {
-      id: 3,
-      user: { name: 'Mike Johnson', username: 'mikej', avatar: '', initials: 'MJ' },
-      content: 'Demo video untuk fitur baru AI Assistant sudah ready! Check it out dan kasih feedback ya teman-teman 🚀',
-      image: null,
-      video: true,
-      timestamp: '6 jam lalu',
-      likes: 67,
-      comments: 23,
-      shares: 15,
-      liked: false
-    },
-    {
-      id: 4,
-      user: { name: 'Sarah Wilson', username: 'sarahw', avatar: '', initials: 'SW' },
-      content: 'Berhasil migrate semua data ke SamuelIndraBastian Cloud Storage! Performance nya amazing dan UI/UX nya sangat user-friendly. Highly recommended! 💯',
-      image: null,
-      timestamp: '8 jam lalu',
-      likes: 89,
-      comments: 34,
-      shares: 22,
-      liked: true
+      id: '3',
+      content: 'Tips hari ini: Gunakan fitur converter untuk mengoptimalkan file Anda sebelum upload. File yang lebih kecil = upload lebih cepat! 💡 #TechTips #Productivity',
+      media_urls: [],
+      media_type: null,
+      likes_count: 18,
+      comments_count: 5,
+      created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      user_id: '3',
+      profiles: {
+        username: 'productivityguru',
+        full_name: 'Productivity Guru',
+        avatar_url: null
+      }
     }
   ];
 
-  const handleCreatePost = () => {
-    if (!newPost.trim()) return;
-    // TODO: Implement post creation logic
-    console.log('Creating post:', newPost);
-    setNewPost('');
+  const trendingTopics = [
+    { tag: '#CloudStorage', count: 245 },
+    { tag: '#AIAssistant', count: 189 },
+    { tag: '#TechInnovation', count: 156 },
+    { tag: '#Productivity', count: 134 },
+    { tag: '#FileConverter', count: 98 }
+  ];
+
+  const suggestedUsers = [
+    { username: 'cloudexpert', name: 'Cloud Expert', followers: '2.3K' },
+    { username: 'airesearcher', name: 'AI Researcher', followers: '1.8K' },
+    { username: 'techreview', name: 'Tech Review', followers: '5.2K' }
+  ];
+
+  useEffect(() => {
+    loadPosts();
+  }, [activeFilter]);
+
+  const loadPosts = async () => {
+    try {
+      // In real app, load from Supabase
+      // const { data, error } = await supabase
+      //   .from('posts')
+      //   .select(`
+      //     *,
+      //     profiles:user_id (
+      //       username,
+      //       full_name,
+      //       avatar_url
+      //     )
+      //   `)
+      //   .order('created_at', { ascending: false });
+
+      // For demo, use mock data
+      setPosts(mockPosts);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <Navigation />
-      
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Feed</h1>
-          <p className="text-gray-600">Berbagi dan berinteraksi dengan komunitas</p>
-        </div>
+  const handlePostCreated = (newPost: any) => {
+    setPosts(prev => [newPost, ...prev]);
+  };
 
-        {/* Create Post */}
-        <Card className="bg-white/60 backdrop-blur-sm border-white/20 mb-8">
-          <CardContent className="p-6">
-            <div className="flex space-x-4">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src="" />
-                <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                  SI
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-4">
-                <Textarea
-                  placeholder="Apa yang ingin Anda bagikan hari ini?"
-                  value={newPost}
-                  onChange={(e) => setNewPost(e.target.value)}
-                  className="min-h-[100px] bg-white/50 border-white/20 resize-none"
-                />
-                <div className="flex items-center justify-between">
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" className="border-blue-200 hover:bg-blue-50">
-                      <ImageIcon className="w-4 h-4 mr-2" />
-                      Foto
-                    </Button>
-                    <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50">
-                      <Video className="w-4 h-4 mr-2" />
-                      Video
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={handleCreatePost}
-                    disabled={!newPost.trim()}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Post
-                  </Button>
+  const handleLike = async (postId: string) => {
+    // Update local state
+    setPosts(prev => prev.map(post => 
+      post.id === postId 
+        ? { ...post, likes_count: post.likes_count + 1 }
+        : post
+    ));
+
+    // In real app, update in Supabase
+    // await supabase.from('likes').insert({ post_id: postId, user_id: user?.id });
+  };
+
+  const handleComment = (postId: string) => {
+    // Navigate to post detail with comment focus
+    console.log('Comment on post:', postId);
+  };
+
+  const handleShare = (postId: string) => {
+    console.log('Share post:', postId);
+  };
+
+  const filteredPosts = posts.filter(post => {
+    if (activeFilter === 'following') {
+      // In real app, filter by followed users
+      return true;
+    }
+    
+    if (searchTerm) {
+      return post.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             post.profiles?.username.toLowerCase().includes(searchTerm.toLowerCase());
+    }
+    
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex gap-8">
+          {/* Main Content */}
+          <div className="flex-1 max-w-2xl space-y-6">
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Feed</h1>
+              <p className="text-gray-600">Bagikan dan temukan konten menarik dari komunitas</p>
+            </div>
+
+            {/* Create Post */}
+            {user && (
+              <CreatePost onPostCreated={handlePostCreated} />
+            )}
+
+            {/* Filter Tabs */}
+            <Tabs value={activeFilter} onValueChange={setActiveFilter}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="all">Semua Post</TabsTrigger>
+                <TabsTrigger value="following">Following</TabsTrigger>
+                <TabsTrigger value="trending">Trending</TabsTrigger>
+              </TabsList>
+
+              {/* Search */}
+              <div className="mt-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Cari post atau pengguna..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Feed Posts */}
-        <div className="space-y-6">
-          {posts.map((post) => (
-            <Card key={post.id} className="bg-white/60 backdrop-blur-sm border-white/20 hover:bg-white/80 transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={post.user.avatar} />
-                      <AvatarFallback>{post.user.initials}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold text-gray-800">{post.user.name}</h3>
-                      <p className="text-sm text-gray-500">@{post.user.username} • {post.timestamp}</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                <p className="text-gray-800 mb-4 leading-relaxed">{post.content}</p>
-                
-                {post.image && (
-                  <div className="mb-4 rounded-lg overflow-hidden">
-                    <img 
-                      src={post.image} 
-                      alt="Post content" 
-                      className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300"
+              {/* Posts */}
+              <TabsContent value={activeFilter} className="space-y-6 mt-6">
+                {filteredPosts.length === 0 ? (
+                  <Card>
+                    <CardContent className="text-center py-12">
+                      <div className="text-6xl mb-4">📝</div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Belum ada post
+                      </h3>
+                      <p className="text-gray-500">
+                        Jadilah yang pertama membagikan sesuatu yang menarik!
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredPosts.map((post) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      onLike={handleLike}
+                      onComment={handleComment}
+                      onShare={handleShare}
                     />
-                  </div>
+                  ))
                 )}
-                
-                {post.video && (
-                  <div className="mb-4 bg-gray-100 rounded-lg h-64 flex items-center justify-center">
-                    <div className="text-center">
-                      <Video className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-500">Video Content</p>
-                    </div>
-                  </div>
-                )}
+              </TabsContent>
+            </Tabs>
+          </div>
 
-                {/* Engagement */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/30">
-                  <div className="flex items-center space-x-6">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`flex items-center space-x-2 ${
-                        post.liked ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-red-600'
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`} />
-                      <span>{post.likes}</span>
-                    </Button>
-                    
-                    <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-gray-600 hover:text-blue-600">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>{post.comments}</span>
-                    </Button>
-                    
-                    <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-gray-600 hover:text-green-600">
-                      <Share className="w-4 h-4" />
-                      <span>{post.shares}</span>
+          {/* Sidebar */}
+          <div className="w-80 space-y-6">
+            {/* Trending Topics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-orange-600" />
+                  <span>Trending Topics</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {trendingTopics.map((topic, index) => (
+                  <div key={index} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <div>
+                      <p className="font-medium text-blue-600">{topic.tag}</p>
+                      <p className="text-xs text-gray-500">{topic.count} posts</p>
+                    </div>
+                    <Hash className="w-4 h-4 text-gray-400" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Suggested Users */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  <span>Suggested Users</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {suggestedUsers.map((suggestedUser, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                        <Users className="w-4 h-4 text-gray-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{suggestedUser.name}</p>
+                        <p className="text-xs text-gray-500">@{suggestedUser.username}</p>
+                        <p className="text-xs text-gray-400">{suggestedUser.followers} followers</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      Follow
                     </Button>
                   </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Activity Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Activity</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span>Posts created</span>
+                  <Badge variant="secondary">12</Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Likes received</span>
+                  <Badge variant="secondary">89</Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Comments made</span>
+                  <Badge variant="secondary">34</Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Following</span>
+                  <Badge variant="secondary">156</Badge>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-
-        {/* Load More */}
-        <div className="text-center mt-8">
-          <Button variant="outline" className="border-blue-200 hover:bg-blue-50">
-            Load More Posts
-          </Button>
+          </div>
         </div>
       </div>
     </div>

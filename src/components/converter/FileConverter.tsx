@@ -1,172 +1,263 @@
 
 import React, { useState } from 'react';
-import { RefreshCw, FileType, Download } from 'lucide-react';
+import { Upload, Download, FileType, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { convertFile } from '@/utils/apiServices';
 
-interface FileConverterProps {
-  files: File[];
-  onProcessComplete: (processedFile: any) => void;
+interface ConversionJob {
+  id: string;
+  file: File;
+  fromFormat: string;
+  toFormat: string;
+  status: 'pending' | 'converting' | 'completed' | 'error';
+  progress: number;
+  downloadUrl?: string;
+  error?: string;
 }
 
-const FileConverter: React.FC<FileConverterProps> = ({ files, onProcessComplete }) => {
-  const [fromFormat, setFromFormat] = useState('');
-  const [toFormat, setToFormat] = useState('');
-  const [isConverting, setIsConverting] = useState(false);
-  const [progress, setProgress] = useState(0);
+export const FileConverter: React.FC = () => {
+  const [jobs, setJobs] = useState<ConversionJob[]>([]);
+  const [selectedFormat, setSelectedFormat] = useState('');
   const { toast } = useToast();
 
-  const conversionOptions = [
-    { from: 'pdf', to: 'txt', label: 'PDF to TXT' },
-    { from: 'docx', to: 'pdf', label: 'DOCX to PDF' },
-    { from: 'jpg', to: 'webp', label: 'JPG to WebP' },
-    { from: 'png', to: 'webp', label: 'PNG to WebP' },
-    { from: 'html', to: 'pdf', label: 'HTML to PDF' },
-    { from: 'xlsx', to: 'pdf', label: 'Excel to PDF' },
+  const supportedConversions = [
+    { from: 'pdf', to: 'txt', label: 'PDF → TXT' },
+    { from: 'docx', to: 'pdf', label: 'DOCX → PDF' },
+    { from: 'png', to: 'webp', label: 'PNG → WebP' },
+    { from: 'jpg', to: 'webp', label: 'JPG → WebP' },
+    { from: 'html', to: 'pdf', label: 'HTML → PDF' },
+    { from: 'txt', to: 'pdf', label: 'TXT → PDF' }
   ];
 
-  const handleConvert = async () => {
-    if (!fromFormat || !toFormat || files.length === 0) {
-      toast({
-        title: "Missing requirements",
-        description: "Please select files and conversion formats",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || !selectedFormat) return;
 
-    setIsConverting(true);
-    setProgress(0);
+    Array.from(files).forEach(file => {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+      const conversion = supportedConversions.find(c => c.from === fileExtension);
+      
+      if (!conversion) {
+        toast({
+          title: "Format tidak didukung",
+          description: `File ${file.name} tidak dapat dikonversi`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const job: ConversionJob = {
+        id: Date.now().toString() + Math.random(),
+        file,
+        fromFormat: conversion.from,
+        toFormat: conversion.to,
+        status: 'pending',
+        progress: 0
+      };
+
+      setJobs(prev => [...prev, job]);
+      startConversion(job);
+    });
+  };
+
+  const startConversion = async (job: ConversionJob) => {
+    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'converting', progress: 10 } : j));
 
     try {
-      // Simulate conversion process
-      const interval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setIsConverting(false);
-            
-            // Simulate successful conversion
-            const processedFile = {
-              id: Date.now().toString(),
-              name: `converted_${files[0].name}.${toFormat}`,
-              originalSize: files[0].size,
-              processedSize: files[0].size * 0.8, // Simulate compression
-              url: `https://ik.imagekit.io/storageweb/converted_${files[0].name}.${toFormat}`,
-              type: `application/${toFormat}`,
-              status: 'completed' as const,
-              progress: 100,
-            };
-            
-            onProcessComplete(processedFile);
-            
-            toast({
-              title: "Conversion completed!",
-              description: `File converted to ${toFormat.toUpperCase()}`,
-            });
-            
-            return 100;
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setJobs(prev => prev.map(j => {
+          if (j.id === job.id && j.progress < 90) {
+            return { ...j, progress: j.progress + 10 };
           }
-          return prev + 10;
-        });
-      }, 300);
+          return j;
+        }));
+      }, 500);
 
+      const result = await convertFile(job.file, job.toFormat);
+      
+      clearInterval(progressInterval);
+
+      if (result.success) {
+        setJobs(prev => prev.map(j => 
+          j.id === job.id 
+            ? { 
+                ...j, 
+                status: 'completed', 
+                progress: 100,
+                downloadUrl: result.downloadUrl 
+              } 
+            : j
+        ));
+
+        toast({
+          title: "Konversi berhasil!",
+          description: `${job.file.name} berhasil dikonversi`,
+        });
+      } else {
+        throw new Error('Conversion failed');
+      }
     } catch (error) {
-      setIsConverting(false);
+      setJobs(prev => prev.map(j => 
+        j.id === job.id 
+          ? { 
+              ...j, 
+              status: 'error', 
+              progress: 0,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            } 
+          : j
+      ));
+
       toast({
-        title: "Conversion failed",
-        description: "Please try again later",
+        title: "Konversi gagal",
+        description: `Gagal mengkonversi ${job.file.name}`,
         variant: "destructive",
       });
     }
   };
 
+  const removeJob = (jobId: string) => {
+    setJobs(prev => prev.filter(j => j.id !== jobId));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
-    <Card className="bg-white/60 backdrop-blur-sm border-white/20">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <RefreshCw className="w-6 h-6 text-blue-600" />
+          <FileType className="w-5 h-5 text-blue-600" />
           <span>File Converter</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              From Format
-            </label>
-            <Select value={fromFormat} onValueChange={setFromFormat}>
-              <SelectTrigger className="bg-white/50 border-white/20">
-                <SelectValue placeholder="Select source format" />
-              </SelectTrigger>
-              <SelectContent>
-                {conversionOptions.map((option) => (
-                  <SelectItem key={option.from} value={option.from}>
-                    {option.from.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Format Selection */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Pilih Jenis Konversi:</label>
+          <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih format konversi" />
+            </SelectTrigger>
+            <SelectContent>
+              {supportedConversions.map((conversion) => (
+                <SelectItem key={conversion.label} value={conversion.label}>
+                  {conversion.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              To Format
+        {/* File Upload */}
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+          <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <div className="space-y-2">
+            <input
+              type="file"
+              multiple
+              onChange={handleFileUpload}
+              disabled={!selectedFormat}
+              className="hidden"
+              id="file-upload"
+              accept=".pdf,.docx,.png,.jpg,.jpeg,.html,.txt"
+            />
+            <label htmlFor="file-upload">
+              <Button
+                type="button"
+                disabled={!selectedFormat}
+                className="bg-blue-600 hover:bg-blue-700"
+                asChild
+              >
+                <span>Pilih File untuk Dikonversi</span>
+              </Button>
             </label>
-            <Select value={toFormat} onValueChange={setToFormat}>
-              <SelectTrigger className="bg-white/50 border-white/20">
-                <SelectValue placeholder="Select target format" />
-              </SelectTrigger>
-              <SelectContent>
-                {conversionOptions
-                  .filter(option => option.from === fromFormat)
-                  .map((option) => (
-                    <SelectItem key={option.to} value={option.to}>
-                      {option.to.toUpperCase()}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <p className="text-sm text-gray-500">
+              {selectedFormat ? `Mendukung: ${selectedFormat}` : 'Pilih format konversi terlebih dahulu'}
+            </p>
           </div>
         </div>
 
-        {isConverting && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Converting...</span>
-              <span>{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-2" />
+        {/* Conversion Jobs */}
+        {jobs.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="font-medium">File dalam Proses:</h3>
+            {jobs.map((job) => (
+              <Card key={job.id} className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm">{job.file.name}</h4>
+                      <p className="text-xs text-gray-500">
+                        {formatFileSize(job.file.size)} • {job.fromFormat.toUpperCase()} → {job.toFormat.toUpperCase()}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {job.status === 'converting' && (
+                        <Loader className="w-4 h-4 animate-spin text-blue-600" />
+                      )}
+                      {job.status === 'completed' && (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      )}
+                      {job.status === 'error' && (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeJob(job.id)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  </div>
+
+                  {job.status === 'converting' && (
+                    <div className="space-y-1">
+                      <Progress value={job.progress} className="h-2" />
+                      <p className="text-xs text-gray-500">Mengkonversi... {job.progress}%</p>
+                    </div>
+                  )}
+
+                  {job.status === 'completed' && (
+                    <Button
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={() => job.downloadUrl && window.open(job.downloadUrl)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Hasil
+                    </Button>
+                  )}
+
+                  {job.status === 'error' && (
+                    <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                      Error: {job.error}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
           </div>
         )}
 
-        <div className="space-y-4">
-          <Button 
-            onClick={handleConvert}
-            disabled={!fromFormat || !toFormat || files.length === 0 || isConverting}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isConverting ? 'animate-spin' : ''}`} />
-            {isConverting ? 'Converting...' : 'Start Conversion'}
-          </Button>
-        </div>
-
-        <div className="bg-blue-50/50 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-800 mb-2">Supported Conversions:</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
-            {conversionOptions.map((option) => (
-              <div key={`${option.from}-${option.to}`}>
-                • {option.label}
-              </div>
-            ))}
-          </div>
+        {/* Supported Formats Info */}
+        <div className="text-xs text-gray-500 space-y-1">
+          <p><strong>Format yang didukung:</strong></p>
+          <p>• PDF ↔ TXT • DOCX → PDF • PNG/JPG → WebP • HTML → PDF</p>
+          <p>• Maksimal ukuran file: 50MB per file</p>
         </div>
       </CardContent>
     </Card>
   );
 };
-
-export default FileConverter;

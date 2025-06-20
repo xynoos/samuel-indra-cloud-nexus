@@ -1,264 +1,261 @@
 
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { 
-  Cloud, 
   HardDrive, 
-  Users, 
-  Bot, 
+  Upload, 
   Download, 
-  Activity, 
-  Smartphone,
-  BarChart3,
-  LogOut
+  Users, 
+  Activity,
+  FileText,
+  Image,
+  Video,
+  Settings
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import Navigation from '@/components/Navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StatsCard } from '@/components/dashboard/StatsCard';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { StorageChart } from '@/components/dashboard/StorageChart';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProfile } from '@/hooks/useProfile';
-import { useFiles } from '@/hooks/useFiles';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
-  const { data: profile } = useProfile();
-  const { data: privateFiles = [] } = useFiles(false);
-  const { data: publicFiles = [] } = useFiles(true);
-
-  // Get user sessions for login history
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['user_sessions', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalFiles: 0,
+    totalUploads: 0,
+    totalDownloads: 0,
+    totalShares: 0
+  });
+  
+  const [storageData, setStorageData] = useState({
+    used: 0,
+    total: 5 * 1024 * 1024 * 1024, // 5GB default
+    breakdown: {
+      images: 0,
+      videos: 0,
+      documents: 0,
+      others: 0
+    }
   });
 
-  // Calculate storage usage
-  const totalStorageUsed = privateFiles.reduce((acc, file) => acc + (file.file_size || 0), 0);
-  const storageInGB = totalStorageUsed / (1024 * 1024 * 1024);
-  const storageLimit = 10; // 10GB limit
-  const storagePercentage = (storageInGB / storageLimit) * 100;
+  const [recentActivities, setRecentActivities] = useState([
+    {
+      id: '1',
+      type: 'upload' as const,
+      description: 'Mengupload dokumen laporan.pdf',
+      timestamp: new Date(Date.now() - 2 * 60 * 1000),
+      fileType: 'pdf'
+    },
+    {
+      id: '2',
+      type: 'share' as const,
+      description: 'Membagikan foto vacation.jpg',
+      timestamp: new Date(Date.now() - 15 * 60 * 1000),
+      fileType: 'jpg'
+    },
+    {
+      id: '3',
+      type: 'download' as const,
+      description: 'Mendownload video presentation.mp4',
+      timestamp: new Date(Date.now() - 30 * 60 * 1000),
+      fileType: 'mp4'
+    }
+  ]);
 
-  const userContributedFiles = publicFiles.filter(file => file.user_id === user?.id);
-  const contributedStorageInGB = userContributedFiles.reduce((acc, file) => acc + (file.file_size || 0), 0) / (1024 * 1024 * 1024);
+  const [sessionHistory, setSessionHistory] = useState([]);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      if (!user) return;
+
+      try {
+        // Load user files
+        const { data: files, error: filesError } = await supabase
+          .from('files')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (!filesError && files) {
+          setStats(prev => ({
+            ...prev,
+            totalFiles: files.length,
+            totalUploads: files.length
+          }));
+
+          // Calculate storage breakdown
+          const breakdown = files.reduce((acc, file) => {
+            const fileType = file.file_type.toLowerCase();
+            if (fileType.includes('image')) {
+              acc.images += file.file_size;
+            } else if (fileType.includes('video')) {
+              acc.videos += file.file_size;
+            } else if (fileType.includes('document') || fileType.includes('pdf') || fileType.includes('text')) {
+              acc.documents += file.file_size;
+            } else {
+              acc.others += file.file_size;
+            }
+            return acc;
+          }, { images: 0, videos: 0, documents: 0, others: 0 });
+
+          const totalUsed = breakdown.images + breakdown.videos + breakdown.documents + breakdown.others;
+          setStorageData(prev => ({
+            ...prev,
+            used: totalUsed,
+            breakdown
+          }));
+        }
+
+        // Load user sessions
+        const { data: sessions, error: sessionsError } = await supabase
+          .from('user_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!sessionsError && sessions) {
+          setSessionHistory(sessions);
+        }
+
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <Navigation />
-      
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard</h1>
-            <p className="text-gray-600">
-              Selamat datang kembali, {profile?.full_name || 'User'}!
-            </p>
-          </div>
-          <Button 
-            onClick={signOut}
-            variant="outline"
-            className="flex items-center space-x-2"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </Button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-2">
+            Selamat datang kembali, {user?.user_metadata?.full_name || user?.email}!
+          </p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Storage Pribadi
-              </CardTitle>
-              <HardDrive className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {storageInGB.toFixed(1)} GB
-              </div>
-              <Progress value={storagePercentage} className="mt-2" />
-              <p className="text-xs text-gray-500 mt-1">
-                {storagePercentage.toFixed(1)}% dari {storageLimit} GB
-              </p>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="storage">Storage</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          </TabsList>
 
-          <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Storage Bersama
-              </CardTitle>
-              <Users className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {contributedStorageInGB.toFixed(1)} GB
-              </div>
-              <p className="text-xs text-gray-500">Kontribusi Anda</p>
-            </CardContent>
-          </Card>
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatsCard
+                title="Total File"
+                value={stats.totalFiles}
+                icon={FileText}
+                description="File yang tersimpan"
+              />
+              <StatsCard
+                title="Upload"
+                value={stats.totalUploads}
+                icon={Upload}
+                description="File yang diupload"
+                trend={{ value: 12, isPositive: true }}
+              />
+              <StatsCard
+                title="Download"
+                value={stats.totalDownloads}
+                icon={Download}
+                description="File yang didownload"
+              />
+              <StatsCard
+                title="Share"
+                value={stats.totalShares}
+                icon={Users}
+                description="File yang dibagikan"
+              />
+            </div>
 
-          <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Files
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {privateFiles.length}
-              </div>
-              <p className="text-xs text-gray-500">Files tersimpan</p>
-            </CardContent>
-          </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <StorageChart data={storageData} />
+              <RecentActivity activities={recentActivities} />
+            </div>
+          </TabsContent>
 
-          <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Public Files
-              </CardTitle>
-              <Bot className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {userContributedFiles.length}
+          <TabsContent value="storage" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <StorageChart data={storageData} />
               </div>
-              <p className="text-xs text-gray-500">Files dibagikan</p>
-            </CardContent>
-          </Card>
-        </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button className="w-full" variant="outline">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload File
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <HardDrive className="w-4 h-4 mr-2" />
+                    Manage Storage
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Storage Settings
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Quick Actions */}
-          <div className="lg:col-span-2">
-            <Card className="bg-white/60 backdrop-blur-sm border-white/20">
+          <TabsContent value="activity" className="space-y-6">
+            <RecentActivity activities={recentActivities} />
+          </TabsContent>
+
+          <TabsContent value="sessions" className="space-y-6">
+            <Card>
               <CardHeader>
-                <CardTitle>Akses Cepat</CardTitle>
-                <CardDescription>
-                  Navigasi cepat ke fitur-fitur utama
-                </CardDescription>
+                <CardTitle>Login Sessions</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                <Link to="/storage/private">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 hover:bg-white/80 border-white/30"
-                  >
-                    <HardDrive className="h-6 w-6 text-blue-600" />
-                    <span>Storage Pribadi</span>
-                  </Button>
-                </Link>
-                
-                <Link to="/storage/shared">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 hover:bg-white/80 border-white/30"
-                  >
-                    <Users className="h-6 w-6 text-purple-600" />
-                    <span>Storage Bersama</span>
-                  </Button>
-                </Link>
-                
-                <Link to="/ai-assistant">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 hover:bg-white/80 border-white/30"
-                  >
-                    <Bot className="h-6 w-6 text-green-600" />
-                    <span>AI Assistant</span>
-                  </Button>
-                </Link>
-                
-                <Link to="/converter">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 hover:bg-white/80 border-white/30"
-                  >
-                    <Download className="h-6 w-6 text-orange-600" />
-                    <span>Converter</span>
-                  </Button>
-                </Link>
+              <CardContent>
+                <div className="space-y-4">
+                  {sessionHistory.length === 0 ? (
+                    <p className="text-center text-gray-500 py-4">
+                      Belum ada riwayat login
+                    </p>
+                  ) : (
+                    sessionHistory.map((session: any) => (
+                      <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{session.device_info || 'Unknown Device'}</p>
+                          <p className="text-sm text-gray-500">{session.location || 'Unknown Location'}</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(session.created_at).toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                            Active
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Recent Activity & Device Info */}
-          <div className="space-y-6">
-            <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Activity className="h-5 w-5" />
-                  <span>Aktivitas Terakhir</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {privateFiles.slice(0, 3).map((file, index) => (
-                  <div key={file.id} className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <div className="text-sm">
-                      <p className="text-gray-800">Upload {file.original_name}</p>
-                      <p className="text-gray-500 text-xs">
-                        {new Date(file.created_at).toLocaleDateString('id-ID')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {privateFiles.length === 0 && (
-                  <p className="text-gray-500 text-sm">Belum ada aktivitas</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/60 backdrop-blur-sm border-white/20">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Smartphone className="h-5 w-5" />
-                  <span>Riwayat Login</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {sessions.slice(0, 3).map((session, index) => (
-                  <div key={session.id} className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Perangkat</span>
-                      <span className="text-sm font-medium">{session.device_info || 'Unknown'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Lokasi</span>
-                      <span className="text-sm font-medium">{session.location || 'Unknown'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Waktu</span>
-                      <span className="text-sm font-medium">
-                        {new Date(session.created_at).toLocaleDateString('id-ID')}
-                      </span>
-                    </div>
-                    {index < sessions.length - 1 && <hr className="my-2" />}
-                  </div>
-                ))}
-                {sessions.length === 0 && (
-                  <p className="text-gray-500 text-sm">Belum ada riwayat login</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
