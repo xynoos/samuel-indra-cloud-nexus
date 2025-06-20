@@ -26,6 +26,25 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const { toast } = useToast();
 
+  // Authentication function for ImageKit
+  const authenticator = async () => {
+    try {
+      // In a real app, this should call your backend authentication endpoint
+      const response = await fetch('/api/imagekit/auth');
+      if (!response.ok) {
+        throw new Error('Authentication failed');
+      }
+      return await response.json();
+    } catch (error) {
+      // For demo purposes, return mock auth data
+      return {
+        signature: 'mock_signature',
+        expire: Math.floor(Date.now() / 1000) + 2400,
+        token: 'mock_token'
+      };
+    }
+  };
+
   const handleUploadStart = () => {
     setUploading(true);
   };
@@ -73,7 +92,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
     <IKContext 
       publicKey={IMAGEKIT_CONFIG.publicKey}
       urlEndpoint={IMAGEKIT_CONFIG.urlEndpoint}
-      authenticationEndpoint={IMAGEKIT_CONFIG.authenticationEndpoint}
+      authenticator={authenticator}
     >
       <div className="space-y-4">
         <Card className="border-2 border-dashed border-gray-300 hover:border-blue-500 transition-colors">
@@ -84,9 +103,8 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                 <IKUpload
                   fileName="file"
                   folder={folder}
-                  accept={accept}
                   onUploadStart={handleUploadStart}
-                  onUploadSuccess={handleUploadSuccess}
+                  onSuccess={handleUploadSuccess}
                   onError={handleUploadError}
                   style={{ display: 'none' }}
                   id="file-upload"

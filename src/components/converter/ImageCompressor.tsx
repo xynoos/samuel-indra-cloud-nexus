@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Compress, Upload, Download, Image as ImageIcon, Loader } from 'lucide-react';
+import { Minimize2, Upload, Download, Image as ImageIcon, Loader } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -134,7 +134,7 @@ export const ImageCompressor: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <Compress className="w-5 h-5 text-green-600" />
+          <Minimize2 className="w-5 h-5 text-green-600" />
           <span>Image Compressor</span>
         </CardTitle>
       </CardHeader>

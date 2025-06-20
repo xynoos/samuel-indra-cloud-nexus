@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileType, Compress, Youtube, Zap, Settings, Info } from 'lucide-react';
+import { FileType, Minimize2, Youtube, Zap, Settings, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,7 @@ const Converter = () => {
       id: 'image-compressor',
       title: 'Image Compressor',
       description: 'Kompres gambar tanpa mengurangi kualitas',
-      icon: Compress,
+      icon: Minimize2,
       color: 'bg-green-500',
       features: ['PNG & JPG', 'Kontrol kualitas', 'Preview hasil', 'Batch processing']
     },

@@ -39,7 +39,7 @@ interface SharedFile {
     username: string;
     full_name: string;
     avatar_url?: string;
-  };
+  } | null;
   likes_count?: number;
   comments_count?: number;
   views_count?: number;
@@ -65,7 +65,7 @@ const StorageShared = () => {
         .from('files')
         .select(`
           *,
-          profiles:user_id (
+          profiles!inner (
             username,
             full_name,
             avatar_url
@@ -88,8 +88,18 @@ const StorageShared = () => {
 
       const { data, error } = await query.limit(50);
 
-      if (error) throw error;
-      setFiles(data || []);
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      // Transform the data to match our interface
+      const transformedData: SharedFile[] = (data || []).map(item => ({
+        ...item,
+        profiles: Array.isArray(item.profiles) ? item.profiles[0] : item.profiles
+      }));
+      
+      setFiles(transformedData);
     } catch (error) {
       console.error('Error loading shared files:', error);
       toast({
@@ -148,7 +158,7 @@ const StorageShared = () => {
   const filteredFiles = files.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     file.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.profiles?.username.toLowerCase().includes(searchTerm.toLowerCase())
+    file.profiles?.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
