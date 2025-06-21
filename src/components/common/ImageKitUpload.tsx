@@ -29,15 +29,36 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   // Authentication function for ImageKit
   const authenticator = async () => {
     try {
-      // For demo purposes, return mock auth data
-      // In production, this should call your backend authentication endpoint
-      return {
-        signature: 'mock_signature',
+      console.log('🔐 Authenticating with ImageKit...');
+      
+      // Try to get authentication from backend first
+      try {
+        const response = await fetch('http://localhost:3001/api/imagekit/auth');
+        if (response.ok) {
+          const authData = await response.json();
+          console.log('✅ Backend authentication successful');
+          return authData;
+        }
+      } catch (backendError) {
+        console.warn('⚠️ Backend auth failed, using fallback:', backendError);
+      }
+
+      // Fallback authentication for demo purposes
+      const authData = {
+        signature: 'demo_signature_' + Date.now(),
         expire: Math.floor(Date.now() / 1000) + 2400,
-        token: 'mock_token'
+        token: 'demo_token_' + Math.random().toString(36).substr(2, 9)
       };
+      
+      console.log('🔧 Using fallback authentication');
+      return authData;
     } catch (error) {
-      console.error('ImageKit auth error:', error);
+      console.error('❌ ImageKit auth error:', error);
+      toast({
+        title: "Authentication Error",
+        description: "Gagal autentikasi dengan ImageKit. Pastikan backend berjalan.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
@@ -70,9 +91,16 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
     console.error('❌ Upload error:', error);
     setUploading(false);
     
+    let errorMessage = "Terjadi kesalahan saat upload";
+    if (error.message?.includes('Authentication')) {
+      errorMessage = "Gagal autentikasi. Pastikan backend server berjalan di localhost:3001";
+    } else if (error.message?.includes('network')) {
+      errorMessage = "Masalah koneksi jaringan";
+    }
+    
     toast({
       title: "Upload gagal",
-      description: error.message || "Terjadi kesalahan saat upload",
+      description: errorMessage,
       variant: "destructive",
     });
 
@@ -130,6 +158,9 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                 </p>
                 <p className="text-xs text-gray-400">
                   Maksimal {Math.round(maxSize / (1024 * 1024))}MB
+                </p>
+                <p className="text-xs text-orange-500">
+                  Pastikan backend server berjalan di localhost:3001
                 </p>
               </div>
             </div>

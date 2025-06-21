@@ -9,7 +9,8 @@ import {
   FileText,
   Image,
   Video,
-  Settings
+  Settings,
+  FolderOpen
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,10 +20,16 @@ import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { StorageChart } from '@/components/dashboard/StorageChart';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { ImageKitUpload } from '@/components/common/ImageKitUpload';
+import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
   const [stats, setStats] = useState({
     totalFiles: 0,
     totalUploads: 0,
@@ -33,6 +40,28 @@ const Dashboard = () => {
   const [storageData, setStorageData] = useState({
     used: 0,
     total: 5 * 1024 * 1024 * 1024, // 5GB default
+    breakdown: {
+      images: 0,
+      videos: 0,
+      documents: 0,
+      others: 0
+    }
+  });
+
+  const [privateStorageData, setPrivateStorageData] = useState({
+    used: 0,
+    total: 2.5 * 1024 * 1024 * 1024, // 2.5GB for private
+    breakdown: {
+      images: 0,
+      videos: 0,
+      documents: 0,
+      others: 0
+    }
+  });
+
+  const [sharedStorageData, setSharedStorageData] = useState({
+    used: 0,
+    total: 2.5 * 1024 * 1024 * 1024, // 2.5GB for shared
     breakdown: {
       images: 0,
       videos: 0,
@@ -79,14 +108,18 @@ const Dashboard = () => {
           .eq('user_id', user.id);
 
         if (!filesError && files) {
+          const privateFiles = files.filter(f => !f.is_public);
+          const sharedFiles = files.filter(f => f.is_public);
+
           setStats(prev => ({
             ...prev,
             totalFiles: files.length,
-            totalUploads: files.length
+            totalUploads: files.length,
+            totalShares: sharedFiles.length
           }));
 
-          // Calculate storage breakdown
-          const breakdown = files.reduce((acc, file) => {
+          // Calculate private storage breakdown
+          const privateBreakdown = privateFiles.reduce((acc, file) => {
             const fileType = file.file_type.toLowerCase();
             if (fileType.includes('image')) {
               acc.images += file.file_size;
@@ -100,11 +133,46 @@ const Dashboard = () => {
             return acc;
           }, { images: 0, videos: 0, documents: 0, others: 0 });
 
-          const totalUsed = breakdown.images + breakdown.videos + breakdown.documents + breakdown.others;
+          // Calculate shared storage breakdown
+          const sharedBreakdown = sharedFiles.reduce((acc, file) => {
+            const fileType = file.file_type.toLowerCase();
+            if (fileType.includes('image')) {
+              acc.images += file.file_size;
+            } else if (fileType.includes('video')) {
+              acc.videos += file.file_size;
+            } else if (fileType.includes('document') || fileType.includes('pdf') || fileType.includes('text')) {
+              acc.documents += file.file_size;
+            } else {
+              acc.others += file.file_size;
+            }
+            return acc;
+          }, { images: 0, videos: 0, documents: 0, others: 0 });
+
+          const privateTotalUsed = privateBreakdown.images + privateBreakdown.videos + privateBreakdown.documents + privateBreakdown.others;
+          const sharedTotalUsed = sharedBreakdown.images + sharedBreakdown.videos + sharedBreakdown.documents + sharedBreakdown.others;
+          const totalUsed = privateTotalUsed + sharedTotalUsed;
+
           setStorageData(prev => ({
             ...prev,
             used: totalUsed,
-            breakdown
+            breakdown: {
+              images: privateBreakdown.images + sharedBreakdown.images,
+              videos: privateBreakdown.videos + sharedBreakdown.videos,
+              documents: privateBreakdown.documents + sharedBreakdown.documents,
+              others: privateBreakdown.others + sharedBreakdown.others
+            }
+          }));
+
+          setPrivateStorageData(prev => ({
+            ...prev,
+            used: privateTotalUsed,
+            breakdown: privateBreakdown
+          }));
+
+          setSharedStorageData(prev => ({
+            ...prev,
+            used: sharedTotalUsed,
+            breakdown: sharedBreakdown
           }));
         }
 
@@ -130,6 +198,42 @@ const Dashboard = () => {
     loadDashboardData();
   }, [user]);
 
+  const handleUploadSuccess = async (uploadResponse: any) => {
+    try {
+      const { error } = await supabase
+        .from('files')
+        .insert({
+          user_id: user?.id,
+          name: uploadResponse.name,
+          original_name: uploadResponse.name,
+          file_type: uploadResponse.fileType,
+          file_size: uploadResponse.size,
+          imagekit_url: uploadResponse.url,
+          imagekit_file_id: uploadResponse.fileId,
+          folder_path: '/',
+          is_public: false
+        });
+
+      if (error) throw error;
+      
+      setShowUpload(false);
+      toast({
+        title: "Upload berhasil!",
+        description: "File berhasil diupload ke storage pribadi",
+      });
+      
+      // Reload dashboard data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error saving file:', error);
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan informasi file",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -148,10 +252,27 @@ const Dashboard = () => {
           </p>
         </div>
 
+        {/* Upload Modal */}
+        {showUpload && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Upload File</h2>
+                <Button variant="ghost" onClick={() => setShowUpload(false)}>×</Button>
+              </div>
+              <ImageKitUpload
+                onUploadSuccess={handleUploadSuccess}
+                folder="/"
+              />
+            </div>
+          </div>
+        )}
+
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
+            <TabsTrigger value="private-storage">Private Storage</TabsTrigger>
+            <TabsTrigger value="shared-storage">Shared Storage</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
           </TabsList>
@@ -187,31 +308,104 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <StorageChart data={storageData} />
-              <RecentActivity activities={recentActivities} />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="storage" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <StorageChart data={storageData} />
-              </div>
               <Card>
                 <CardHeader>
                   <CardTitle>Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full" variant="outline">
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setShowUpload(true)}
+                  >
                     <Upload className="w-4 h-4 mr-2" />
                     Upload File
                   </Button>
-                  <Button className="w-full" variant="outline">
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => navigate('/storage/private')}
+                  >
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Manage Private Storage
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => navigate('/storage/shared')}
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Shared Storage
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="private-storage" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <StorageChart data={privateStorageData} />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Private Storage Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setShowUpload(true)}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload File
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => navigate('/storage/private')}
+                  >
                     <HardDrive className="w-4 h-4 mr-2" />
-                    Manage Storage
+                    Manage Files
                   </Button>
                   <Button className="w-full" variant="outline">
                     <Settings className="w-4 h-4 mr-2" />
                     Storage Settings
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="shared-storage" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <StorageChart data={sharedStorageData} />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Shared Storage Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => navigate('/storage/shared')}
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Browse Shared Files
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => navigate('/storage/shared')}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Share New File
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Sharing Settings
                   </Button>
                 </CardContent>
               </Card>
