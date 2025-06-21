@@ -1,9 +1,10 @@
-
 export const IMAGEKIT_CONFIG = {
   publicKey: 'public_US5VRdFnHVT1xVrE3bHloagUYYo=',
   privateKey: 'private_Mp8yk5fUx2oguuzkcxk1Q1A6OyE=',
   urlEndpoint: 'https://ik.imagekit.io/storageweb',
-  authenticationEndpoint: '/api/imagekit/auth'
+  authenticationEndpoint: process.env.NODE_ENV === 'production' 
+    ? 'https://your-backend-url.com/api/imagekit/auth'
+    : 'http://localhost:3001/api/imagekit/auth'
 };
 
 export const API_CONFIG = {

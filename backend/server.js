@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
+const imagekitRoutes = require('./routes/imagekit');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +54,7 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     version: '1.0.0',
     emailService: 'Gmail SMTP Ready',
+    imagekitService: 'ImageKit Auth Ready',
     services: {
       gmail: {
         configured: true,
@@ -62,13 +64,20 @@ app.get('/health', (req, res) => {
         smtpPort: 587,
         secure: false
       },
+      imagekit: {
+        configured: true,
+        publicKey: 'public_US5VRdFnHVT1xVrE3bHloagUYYo=',
+        urlEndpoint: 'https://ik.imagekit.io/storageweb',
+        status: 'Ready'
+      },
       smtp: 'Available and Configured'
     },
     endpoints: [
       'GET /health - Health check',
       'POST /api/send-otp-email - Send OTP via Gmail SMTP',
       'POST /api/verify-otp - Verify OTP code',
-      'POST /api/test-email - Test Gmail SMTP connection'
+      'POST /api/test-email - Test Gmail SMTP connection',
+      'GET /api/imagekit/auth - ImageKit authentication'
     ]
   };
   
@@ -77,6 +86,7 @@ app.get('/health', (req, res) => {
   console.log('⏱️ Uptime:', healthInfo.uptime, 'seconds');
   console.log('📧 Gmail SMTP:', healthInfo.services.gmail.status);
   console.log('🔑 Gmail User:', healthInfo.services.gmail.user);
+  console.log('🖼️ ImageKit:', healthInfo.services.imagekit.status);
   
   res.json(healthInfo);
 });
@@ -144,6 +154,9 @@ app.post('/api/test-email', async (req, res) => {
 // Auth routes
 app.use('/api', authRoutes);
 
+// ImageKit routes
+app.use('/api/imagekit', imagekitRoutes);
+
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
   console.error('\n🚨 SERVER ERROR OCCURRED:');
@@ -174,7 +187,8 @@ app.use('*', (req, res) => {
       'GET /health - Health check and status',
       'POST /api/send-otp-email - Send OTP via Gmail SMTP',
       'POST /api/verify-otp - Verify OTP code',
-      'POST /api/test-email - Test Gmail SMTP connection'
+      'POST /api/test-email - Test Gmail SMTP connection',
+      'GET /api/imagekit/auth - ImageKit authentication'
     ],
     suggestion: 'Check the API documentation or available endpoints above'
   };
@@ -197,16 +211,20 @@ app.listen(PORT, () => {
   console.log(`📧 Gmail SMTP configured: renungankristensite@gmail.com`);
   console.log(`🔐 Gmail SMTP Status: READY TO SEND EMAILS`);
   console.log(`🔑 App Password: zglq snms qjfs wtfy (configured)`);
+  console.log(`🖼️ ImageKit Auth: READY FOR UPLOADS`);
   console.log(`🌐 CORS enabled for development and production domains`);
   console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
   console.log(`📮 Test Gmail SMTP: http://localhost:${PORT}/api/test-email`);
+  console.log(`🔐 ImageKit Auth: http://localhost:${PORT}/api/imagekit/auth`);
   console.log('\n📋 Available API Endpoints:');
   console.log('  ✅ GET  /health - Health check and system status');
   console.log('  📧 POST /api/send-otp-email - Send OTP email via Gmail SMTP');
   console.log('  🔍 POST /api/verify-otp - Verify OTP code');
   console.log('  🧪 POST /api/test-email - Test Gmail SMTP connection');
+  console.log('  🔐 GET  /api/imagekit/auth - ImageKit authentication');
   console.log('\n🔥 Gmail SMTP is configured and ready to send real emails!');
+  console.log('🖼️ ImageKit is configured and ready for file uploads!');
   console.log('📨 No more simulation - real emails will be sent to users');
   console.log('⚠️  Make sure to start this server before testing registration');
   console.log('💡 To test: cd backend && npm start');
