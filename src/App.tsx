@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ImageKitProvider } from "@/components/common/ImageKitProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import Navigation from "@/components/Navigation";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -33,11 +34,36 @@ const App = () => (
         <AuthProvider>
           <ImageKitProvider>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/verify" element={<Verify />} />
+              <Route path="/" element={
+                <>
+                  <Navigation />
+                  <Index />
+                </>
+              } />
+              <Route path="/about" element={
+                <>
+                  <Navigation />
+                  <About />
+                </>
+              } />
+              <Route path="/login" element={
+                <>
+                  <Navigation />
+                  <Login />
+                </>
+              } />
+              <Route path="/register" element={
+                <>
+                  <Navigation />
+                  <Register />
+                </>
+              } />
+              <Route path="/verify" element={
+                <>
+                  <Navigation />
+                  <Verify />
+                </>
+              } />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Dashboard />

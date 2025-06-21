@@ -10,15 +10,24 @@ import {
   Bot, 
   RefreshCw,
   Settings,
-  User
+  User,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const Navigation = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
 
   const navigationItems = [
@@ -31,6 +40,10 @@ const Navigation = () => {
     { path: '/converter', icon: RefreshCw, label: 'Converter' },
   ];
 
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <nav className="bg-white/80 backdrop-blur-lg border-b border-white/20 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,51 +55,93 @@ const Navigation = () => {
             </span>
           </Link>
 
-          <div className="hidden lg:flex items-center space-x-1">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
+          {user && (
+            <div className="hidden lg:flex items-center space-x-1">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex items-center space-x-4">
-            {user && (
-              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-                <span>Welcome, {profile?.username || 'User'}</span>
+            {user ? (
+              <>
+                <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
+                  <span>Welcome, {profile?.username || user.email?.split('@')[0]}</span>
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={profile?.avatar_url} alt={profile?.username} />
+                        <AvatarFallback>
+                          {profile?.username?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <div className="flex items-center justify-start gap-2 p-2">
+                      <div className="flex flex-col space-y-1 leading-none">
+                        {profile?.full_name && (
+                          <p className="font-medium">{profile.full_name}</p>
+                        )}
+                        <p className="w-[200px] truncate text-sm text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    {profile && (
+                      <DropdownMenuItem asChild>
+                        <Link to={`/profile/${profile.username}`}>
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Link to="/login">
+                  <Button variant="ghost" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    Register
+                  </Button>
+                </Link>
               </div>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-600 hover:text-blue-600"
-            >
-              <Settings className="w-4 h-4" />
-            </Button>
-            {profile && (
-              <Link to={`/profile/${profile.username}`}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-blue-600"
-                >
-                  <User className="w-4 h-4" />
-                </Button>
-              </Link>
             )}
           </div>
         </div>

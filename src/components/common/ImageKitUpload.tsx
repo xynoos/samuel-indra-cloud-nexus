@@ -29,27 +29,30 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   // Authentication function for ImageKit
   const authenticator = async () => {
     try {
-      // In a real app, this should call your backend authentication endpoint
-      const response = await fetch('/api/imagekit/auth');
-      if (!response.ok) {
-        throw new Error('Authentication failed');
-      }
-      return await response.json();
-    } catch (error) {
       // For demo purposes, return mock auth data
+      // In production, this should call your backend authentication endpoint
       return {
         signature: 'mock_signature',
         expire: Math.floor(Date.now() / 1000) + 2400,
         token: 'mock_token'
       };
+    } catch (error) {
+      console.error('ImageKit auth error:', error);
+      throw error;
     }
   };
 
   const handleUploadStart = () => {
+    console.log('🚀 Starting file upload...');
     setUploading(true);
+    toast({
+      title: "Mengupload file...",
+      description: "Mohon tunggu sebentar",
+    });
   };
 
   const handleUploadSuccess = (response: any) => {
+    console.log('✅ Upload success:', response);
     setUploading(false);
     setUploadedFiles(prev => [...prev, response]);
     
@@ -64,8 +67,8 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   };
 
   const handleUploadError = (error: any) => {
+    console.error('❌ Upload error:', error);
     setUploading(false);
-    console.error('Upload error:', error);
     
     toast({
       title: "Upload gagal",
@@ -83,8 +86,8 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   };
 
   const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith('image/')) return <Image className="w-4 h-4" />;
-    if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />;
+    if (fileType?.startsWith('image/')) return <Image className="w-4 h-4" />;
+    if (fileType?.startsWith('video/')) return <Video className="w-4 h-4" />;
     return <File className="w-4 h-4" />;
   };
 
@@ -108,6 +111,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                   onError={handleUploadError}
                   style={{ display: 'none' }}
                   id="file-upload"
+                  accept={accept}
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Button
@@ -122,6 +126,9 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                   </Button>
                 </label>
                 <p className="text-sm text-gray-500">
+                  Drag & drop atau klik untuk memilih file
+                </p>
+                <p className="text-xs text-gray-400">
                   Maksimal {Math.round(maxSize / (1024 * 1024))}MB
                 </p>
               </div>
@@ -140,7 +147,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                     <div>
                       <p className="font-medium text-sm">{file.name}</p>
                       <p className="text-xs text-gray-500">
-                        {Math.round(file.size / 1024)}KB
+                        {file.size ? Math.round(file.size / 1024) + 'KB' : 'Unknown size'}
                       </p>
                     </div>
                   </div>

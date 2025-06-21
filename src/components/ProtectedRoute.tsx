@@ -3,6 +3,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
+import Navigation from '@/components/Navigation';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -28,7 +29,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <Navigation />
+      {children}
+    </>
+  );
 };
 
 export default ProtectedRoute;
