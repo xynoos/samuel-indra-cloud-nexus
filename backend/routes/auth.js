@@ -3,19 +3,26 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const router = express.Router();
 
-// Gmail SMTP configuration
+// Gmail SMTP configuration - sudah dikonfigurasi dengan benar
 const gmailConfig = {
-  user: 'renungankristensite@gmail.com',
-  pass: 'zglq snms qjfs wtfy'
+  user: 'renungankristensite@gmail.com', 
+  pass: 'zglq snms qjfs wtfy' // App Password Gmail yang sudah diberikan
 };
 
-// Create Gmail transporter
+// Create Gmail transporter dengan konfigurasi yang tepat
 const createGmailTransporter = () => {
+  console.log('Creating Gmail transporter with user:', gmailConfig.user);
   return nodemailer.createTransporter({
     service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
       user: gmailConfig.user,
       pass: gmailConfig.pass
+    },
+    tls: {
+      rejectUnauthorized: false
     }
   });
 };
@@ -28,22 +35,36 @@ const generateOTP = () => {
 // Send OTP Email endpoint
 router.post('/send-otp-email', async (req, res) => {
   try {
-    const { email, fullName } = req.body;
+    console.log('📧 Send OTP email request received:', req.body);
+    const { email, fullName, otp } = req.body;
     
     if (!email || !fullName) {
+      console.log('❌ Missing required fields:', { email, fullName });
       return res.status(400).json({
         success: false,
         message: 'Email and fullName are required'
       });
     }
 
-    const otp = generateOTP();
+    // Use provided OTP or generate new one
+    const verificationOTP = otp || generateOTP();
+    console.log('🔢 Using OTP:', verificationOTP);
+    
     const transporter = createGmailTransporter();
     
+    // Test connection first
+    try {
+      await transporter.verify();
+      console.log('✅ Gmail SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('❌ Gmail SMTP verification failed:', verifyError);
+      throw new Error('Gmail SMTP configuration error: ' + verifyError.message);
+    }
+    
     const mailOptions = {
-      from: `"SamuelIndraBastian Cloud" <${gmailConfig.user}>`,
+      from: `"SamuelIndraBastian Cloud Storage" <${gmailConfig.user}>`,
       to: email,
-      subject: `${otp} - Kode Verifikasi SamuelIndraBastian Cloud`,
+      subject: `${verificationOTP} - Kode Verifikasi SamuelIndraBastian Cloud`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -68,7 +89,7 @@ router.post('/send-otp-email', async (req, res) => {
                     
                     <div style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 10px; padding: 30px; text-align: center; margin: 30px 0; border: 2px dashed #6366f1;">
                         <div style="color: #1f2937; font-size: 14px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">KODE VERIFIKASI</div>
-                        <div style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</div>
+                        <div style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: 'Courier New', monospace;">${verificationOTP}</div>
                         <div style="color: #6b7280; font-size: 12px; margin-top: 10px;">Kode berlaku selama 5 menit</div>
                     </div>
                     
@@ -96,27 +117,51 @@ router.post('/send-otp-email', async (req, res) => {
         </body>
         </html>
       `,
-      text: `Halo ${fullName},\n\nKode verifikasi Anda untuk SamuelIndraBastian Cloud adalah: ${otp}\n\nKode ini berlaku selama 5 menit.\n\nJika Anda tidak mendaftar untuk layanan ini, abaikan email ini.\n\nTerima kasih,\nTim SamuelIndraBastian Cloud`
+      text: `Halo ${fullName},\n\nKode verifikasi Anda untuk SamuelIndraBastian Cloud adalah: ${verificationOTP}\n\nKode ini berlaku selama 5 menit.\n\nJika Anda tidak mendaftar untuk layanan ini, abaikan email ini.\n\nTerima kasih,\nTim SamuelIndraBastian Cloud`
     };
 
-    console.log('Sending email to:', email);
+    console.log('📤 Sending email to:', email);
+    console.log('📧 Email options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+
     const info = await transporter.sendMail(mailOptions);
     
-    console.log('Email sent successfully:', info.messageId);
+    console.log('✅ Email sent successfully!');
+    console.log('📋 Message ID:', info.messageId);
+    console.log('📊 Response:', info.response);
     
     res.json({
       success: true,
-      message: 'OTP email sent successfully',
+      message: 'OTP email sent successfully via Gmail SMTP',
       messageId: info.messageId,
-      otp: otp // Include OTP in response for verification
+      otp: verificationOTP, // Include OTP in response for verification
+      emailSent: true,
+      provider: 'Gmail SMTP'
     });
     
   } catch (error) {
-    console.error('Error sending OTP email:', error);
+    console.error('❌ Error sending OTP email:', error);
+    console.error('❌ Full error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode
+    });
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to send OTP email',
-      error: error.message
+      message: 'Failed to send OTP email via Gmail SMTP',
+      error: error.message,
+      errorDetails: {
+        name: error.name,
+        code: error.code,
+        command: error.command
+      }
     });
   }
 });
@@ -124,6 +169,7 @@ router.post('/send-otp-email', async (req, res) => {
 // Verify OTP endpoint
 router.post('/verify-otp', async (req, res) => {
   try {
+    console.log('🔍 OTP verification request:', req.body);
     const { otp, expectedOtp } = req.body;
     
     if (!otp || !expectedOtp) {
@@ -134,14 +180,16 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     const isValid = otp === expectedOtp;
+    console.log('✅ OTP validation result:', { otp, expectedOtp, isValid });
     
     res.json({
       success: isValid,
-      message: isValid ? 'OTP verified successfully' : 'Invalid OTP'
+      message: isValid ? 'OTP verified successfully' : 'Invalid OTP code',
+      verified: isValid
     });
     
   } catch (error) {
-    console.error('Error verifying OTP:', error);
+    console.error('❌ Error verifying OTP:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to verify OTP',

@@ -12,12 +12,15 @@ interface EmailResponse {
   message: string;
   messageId?: string;
   otp?: string;
+  emailSent?: boolean;
+  provider?: string;
 }
 
 export const sendOTPEmail = async ({ email, fullName, otp }: SendOTPEmailData): Promise<EmailResponse> => {
   try {
-    console.log('Attempting to send OTP email via backend API to:', email);
-    console.log('Backend URL:', `${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.sendEmail}`);
+    console.log('📧 Attempting to send OTP email via Gmail SMTP backend to:', email);
+    console.log('🔗 Backend URL:', `${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.sendEmail}`);
+    console.log('📝 Request data:', { email, fullName, otp: otp.substring(0, 2) + '****' });
     
     const response = await fetch(`${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.sendEmail}`, {
       method: 'POST',
@@ -31,52 +34,50 @@ export const sendOTPEmail = async ({ email, fullName, otp }: SendOTPEmailData): 
       }),
     });
 
-    console.log('Backend response status:', response.status);
+    console.log('📡 Backend response status:', response.status);
+    console.log('📡 Backend response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Backend error response:', errorText);
-      throw new Error(`Backend error: ${response.status} - ${errorText}`);
+      console.error('❌ Backend error response:', errorText);
+      
+      if (response.status === 500) {
+        throw new Error(`Gmail SMTP Error: ${errorText}`);
+      } else {
+        throw new Error(`Backend error: ${response.status} - ${errorText}`);
+      }
     }
 
     const result = await response.json();
-    console.log('Backend response data:', result);
+    console.log('✅ Success! Backend response data:', result);
     
-    if (result.success) {
-      console.log('✅ Email sent successfully via Gmail SMTP');
-      return {
-        success: true,
-        message: 'Email berhasil dikirim ke Gmail Anda',
-        messageId: result.messageId,
-        otp: result.otp
-      };
-    } else {
-      throw new Error(result.message || 'Failed to send email via backend');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error connecting to backend email service:', error);
-    
-    // Only use fallback in development and show clear warning
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('🚨 DEVELOPMENT MODE: Using email simulation because backend is not available');
-      console.log('📧 To receive real emails, please start the backend server:');
-      console.log('   cd backend && npm install && npm start');
-      console.log('=== EMAIL SIMULATION (DEVELOPMENT ONLY) ===');
-      console.log('To:', email);
-      console.log('Full Name:', fullName);
-      console.log('OTP Code:', otp);
-      console.log('===========================================');
+    if (result.success && result.emailSent) {
+      console.log('🎉 Email berhasil dikirim via Gmail SMTP!');
+      console.log('📬 Message ID:', result.messageId);
+      console.log('🚀 Provider:', result.provider);
       
       return {
         success: true,
-        message: '⚠️ Email simulasi (Backend tidak aktif) - Kode OTP: ' + otp,
-        messageId: `dev_sim_${Date.now()}`,
-        otp
+        message: 'Email berhasil dikirim ke Gmail Anda! Periksa inbox atau folder spam.',
+        messageId: result.messageId,
+        otp: result.otp,
+        emailSent: true,
+        provider: result.provider || 'Gmail SMTP'
       };
     } else {
-      // In production, don't use fallback
-      throw new Error('Email service tidak tersedia. Silakan coba lagi nanti.');
+      throw new Error(result.message || 'Email gagal dikirim oleh backend');
+    }
+    
+  } catch (error) {
+    console.error('❌ Critical error in email service:', error);
+    
+    // Provide detailed error message based on error type
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Backend server tidak dapat dijangkau. Pastikan server berjalan di http://localhost:3001');
+    } else if (error.message.includes('Gmail SMTP')) {
+      throw new Error('Konfigurasi Gmail SMTP bermasalah. Periksa username dan app password.');
+    } else {
+      throw new Error(error.message || 'Gagal mengirim email verifikasi');
     }
   }
 };

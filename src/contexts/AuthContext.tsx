@@ -37,27 +37,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check backend health on startup
   const checkBackendHealth = async () => {
     try {
-      const response = await fetch(`${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.health}`);
+      console.log('🏥 Checking backend health...');
+      const response = await fetch(`${API_CONFIG.backend.url}${API_CONFIG.backend.endpoints.health}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
       if (response.ok) {
         const health = await response.json();
-        console.log('✅ Backend server is running:', health);
+        console.log('✅ Backend server is running and healthy:', health);
+        console.log('📧 Gmail SMTP Status:', health.services?.gmail?.status);
         return true;
+      } else {
+        console.warn('⚠️ Backend server responded with error:', response.status);
+        return false;
       }
     } catch (error) {
-      console.warn('⚠️ Backend server is not running. Emails will use simulation mode.');
+      console.error('❌ Backend server is not accessible:', error);
       return false;
     }
-    return false;
   };
 
   useEffect(() => {
-    // Check backend health
-    checkBackendHealth();
+    // Check backend health immediately
+    checkBackendHealth().then(isHealthy => {
+      if (isHealthy) {
+        console.log('🎉 Backend server dan Gmail SMTP siap digunakan!');
+      } else {
+        console.warn('⚠️ Backend server tidak tersedia. Email tidak akan terkirim.');
+      }
+    });
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        console.log('🔐 Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -82,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
+      console.log('🔍 Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -119,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, username: string, fullName: string) => {
     try {
-      console.log('🚀 Starting signup process for:', email);
+      console.log('🚀 Starting registration process for:', email);
       
       // First check if user already exists
       const { data: existingUser } = await supabase
@@ -142,49 +158,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const otp = generateOTP();
       setCurrentOTP(otp);
       
-      console.log('📧 Generated OTP for verification:', otp);
+      console.log('🔢 Generated OTP for email verification:', otp);
 
-      // Check if backend is available
+      // Check backend availability first
+      const isBackendHealthy = await checkBackendHealth();
+      if (!isBackendHealthy) {
+        toast({
+          title: "Backend server tidak tersedia",
+          description: "Silakan jalankan server backend terlebih dahulu: cd backend && npm start",
+          variant: "destructive",
+          duration: 8000,
+        });
+        throw new Error('Backend server tidak dapat dijangkau');
+      }
+
+      // Show loading message
       toast({
-        title: "Mengirim kode verifikasi...",
-        description: "Mohon tunggu sebentar",
+        title: "📧 Mengirim kode verifikasi...",
+        description: "Menggunakan Gmail SMTP, mohon tunggu sebentar",
       });
 
-      // Send OTP email
+      // Send OTP email via Gmail SMTP
       try {
-        console.log('📤 Attempting to send OTP email...');
+        console.log('📤 Sending OTP email via Gmail SMTP backend...');
         const emailResult = await sendOTPEmail({
           email,
           fullName,
           otp
         });
+        
         console.log('📧 Email service response:', emailResult);
 
-        if (!emailResult.success) {
+        if (!emailResult.success || !emailResult.emailSent) {
           throw new Error(emailResult.message || 'Gagal mengirim email verifikasi');
         }
 
-        // Show appropriate success message based on whether backend is running
-        if (emailResult.messageId?.startsWith('dev_sim_')) {
-          toast({
-            title: "⚠️ Mode Pengembangan",
-            description: `Backend tidak aktif. Kode OTP: ${otp}`,
-            duration: 10000,
-          });
-        } else {
-          toast({
-            title: "✅ Kode verifikasi terkirim!",
-            description: `Kode OTP telah dikirim ke ${email} via Gmail`,
-          });
-        }
+        // Success - email sent via Gmail SMTP
+        console.log('🎉 Email berhasil dikirim via Gmail SMTP!');
+        toast({
+          title: "✅ Kode verifikasi berhasil dikirim!",
+          description: `Email terkirim ke ${email} via Gmail SMTP. Periksa inbox atau folder spam Anda.`,
+          duration: 8000,
+        });
 
       } catch (emailError) {
-        console.error('❌ Email sending failed:', emailError);
+        console.error('❌ Gmail SMTP email sending failed:', emailError);
+        
+        // Show specific error message
+        let errorMessage = 'Gagal mengirim email verifikasi';
+        if (emailError.message.includes('Backend server tidak dapat dijangkau')) {
+          errorMessage = 'Backend server tidak berjalan. Jalankan: cd backend && npm start';
+        } else if (emailError.message.includes('Gmail SMTP')) {
+          errorMessage = 'Konfigurasi Gmail SMTP bermasalah. Periksa username dan app password.';
+        } else {
+          errorMessage = emailError instanceof Error ? emailError.message : 'Terjadi kesalahan pada service email';
+        }
+        
         toast({
-          title: "Gagal mengirim email verifikasi",
-          description: emailError instanceof Error ? emailError.message : "Pastikan backend server berjalan di port 3001",
+          title: "❌ Email gagal dikirim",
+          description: errorMessage,
           variant: "destructive",
-          duration: 8000,
+          duration: 10000,
         });
         return { error: emailError };
       }
@@ -201,12 +235,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         sessionStorage.setItem('pendingUser', JSON.stringify(userData));
-        console.log('💾 User data stored in session storage');
+        console.log('💾 User registration data stored temporarily');
       } catch (storageError) {
         console.error('Failed to store user data:', storageError);
         toast({
           title: "Error penyimpanan",
-          description: "Gagal menyimpan data sementara",
+          description: "Gagal menyimpan data registrasi sementara",
           variant: "destructive",
         });
         return { error: storageError };
@@ -214,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { error: null };
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('Registration error:', error);
       toast({
         title: "Registrasi gagal",
         description: error instanceof Error ? error.message : "Terjadi kesalahan saat mendaftar",

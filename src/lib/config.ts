@@ -40,7 +40,7 @@ export const API_CONFIG = {
   },
   gmail: {
     user: 'renungankristensite@gmail.com',
-    pass: 'zglq snms qjfs wtfy'
+    pass: 'zglq snms qjfs wtfy' // App Password yang sudah dikonfigurasi
   },
   emailjs: {
     serviceId: 'service_gmail',
