@@ -1,98 +1,89 @@
 
-# SamuelIndraBastian Cloud Storage - Backend
+# SamuelIndraBastian Cloud Backend Server
 
-Backend server untuk aplikasi SamuelIndraBastian Cloud Storage dengan fitur:
+Backend server untuk SamuelIndraBastian Cloud Storage dengan Gmail SMTP untuk verifikasi email.
 
-## 🚀 Fitur
+## 🚀 Quick Start
 
-- **Email Verifikasi**: SMTP Gmail dengan Nodemailer
-- **YouTube Downloader**: yt-dlp integration untuk download MP3/MP4
-- **File Upload**: Endpoint untuk upload ke ImageKit
-- **Admin Panel**: Log aktivitas dan statistik
-
-## 📦 Instalasi
-
+### 1. Install Dependencies
 ```bash
 cd backend
 npm install
 ```
 
-## 🔧 Konfigurasi
-
-### Gmail SMTP
-- Email: storagepagexyn@gmail.com
-- App Password: zglq snms qjfs wtfy
-
-### YouTube Downloader
-Pastikan `yt-dlp` dan `ffmpeg` terinstall di sistem:
-
+### 2. Start Server
 ```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install yt-dlp ffmpeg
-
-# Windows (via chocolatey)
-choco install yt-dlp ffmpeg
-
-# macOS (via homebrew)
-brew install yt-dlp ffmpeg
-```
-
-## 🚦 Menjalankan Server
-
-```bash
-# Development
-npm run dev
-
-# Production
 npm start
 ```
 
-Server akan berjalan di `http://localhost:3001`
+Server akan berjalan di: `http://localhost:3001`
 
-## 📚 API Endpoints
+## 📧 Gmail SMTP Configuration
 
-### Email Verification
-- `POST /api/send-verification` - Kirim kode OTP ke email
-- `POST /api/verify-otp` - Verifikasi kode OTP
+Server sudah dikonfigurasi dengan:
+- **Gmail User**: `renungankristensite@gmail.com`
+- **App Password**: `zglq snms qjfs wtfy`
+- **SMTP Host**: `smtp.gmail.com`
+- **SMTP Port**: `587`
 
-### YouTube Downloader
-- `POST /download` - Download video/audio dari YouTube URL
+## 🔍 Available Endpoints
 
 ### Health Check
-- `GET /health` - Status server
-
-## 📁 Struktur File
-
 ```
-backend/
-├── server.js          # Main server file
-├── package.json       # Dependencies
-├── downloads/         # Downloaded files (auto-created)
-└── README.md         # This file
+GET http://localhost:3001/health
 ```
 
-## 🔒 Security Notes
+### Send OTP Email
+```
+POST http://localhost:3001/api/send-otp-email
+Content-Type: application/json
 
-- OTP disimpan dalam memory (gunakan Redis untuk production)
-- File download disimpan sementara di folder `downloads/`
-- Validasi input untuk mencegah directory traversal
-- CORS dikonfigurasi untuk frontend
+{
+  "email": "user@example.com",
+  "fullName": "User Name",
+  "otp": "123456"
+}
+```
+
+### Verify OTP
+```
+POST http://localhost:3001/api/verify-otp
+Content-Type: application/json
+
+{
+  "otp": "123456",
+  "expectedOtp": "123456"
+}
+```
+
+### Test Gmail SMTP
+```
+POST http://localhost:3001/api/test-email
+```
 
 ## 🐛 Troubleshooting
 
-### Error: yt-dlp not found
-```bash
-npm install -g yt-dlp
-# atau
-pip install yt-dlp
-```
+### Error: ECONNREFUSED
+- Pastikan server backend berjalan
+- Cek port 3001 tidak digunakan aplikasi lain
 
-### Error: ffmpeg not found
-Install ffmpeg sesuai OS Anda (lihat bagian instalasi)
+### Email Tidak Terkirim
+- Verifikasi Gmail App Password
+- Cek koneksi internet
+- Test endpoint `/api/test-email`
 
-### Email tidak terkirim
-- Pastikan Gmail App Password benar
-- Periksa koneksi internet
-- Aktifkan "Less secure app access" jika diperlukan
-```
+### CORS Error
+- Server sudah dikonfigurasi untuk development dan production
+- Pastikan origin request sesuai dengan CORS configuration
+
+## 📋 Environment Requirements
+
+- Node.js >= 16.x
+- NPM >= 8.x
+- Internet connection untuk Gmail SMTP
+
+## 🔐 Security
+
+- Gmail App Password disimpan di server
+- CORS dikonfigurasi untuk domain yang diizinkan
+- Rate limiting akan ditambahkan di versi selanjutnya

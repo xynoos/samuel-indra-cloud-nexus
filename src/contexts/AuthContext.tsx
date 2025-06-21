@@ -67,6 +67,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('🎉 Backend server dan Gmail SMTP siap digunakan!');
       } else {
         console.warn('⚠️ Backend server tidak tersedia. Email tidak akan terkirim.');
+        toast({
+          title: "⚠️ Backend Server Tidak Berjalan",
+          description: "Untuk mengirim email verifikasi, jalankan: cd backend && npm start",
+          variant: "destructive",
+          duration: 10000,
+        });
       }
     });
 
@@ -160,16 +166,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('🔢 Generated OTP for email verification:', otp);
 
-      // Check backend availability first
+      // Check backend availability first with better error handling
       const isBackendHealthy = await checkBackendHealth();
       if (!isBackendHealthy) {
         toast({
-          title: "Backend server tidak tersedia",
-          description: "Silakan jalankan server backend terlebih dahulu: cd backend && npm start",
+          title: "❌ Backend Server Tidak Berjalan",
+          description: "Silakan jalankan backend server terlebih dahulu:\n\n1. Buka terminal baru\n2. cd backend\n3. npm install\n4. npm start\n\nSetelah itu coba registrasi lagi.",
           variant: "destructive",
-          duration: 8000,
+          duration: 15000,
         });
-        throw new Error('Backend server tidak dapat dijangkau');
+        throw new Error('Backend server tidak dapat dijangkau. Jalankan: cd backend && npm start');
       }
 
       // Show loading message
@@ -207,9 +213,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Show specific error message
         let errorMessage = 'Gagal mengirim email verifikasi';
         if (emailError.message.includes('Backend server tidak dapat dijangkau')) {
-          errorMessage = 'Backend server tidak berjalan. Jalankan: cd backend && npm start';
+          errorMessage = '🔧 Backend server tidak berjalan.\n\nLangkah perbaikan:\n1. Buka terminal baru\n2. cd backend\n3. npm install\n4. npm start\n5. Refresh halaman ini\n6. Coba registrasi lagi';
         } else if (emailError.message.includes('Gmail SMTP')) {
-          errorMessage = 'Konfigurasi Gmail SMTP bermasalah. Periksa username dan app password.';
+          errorMessage = '📧 Konfigurasi Gmail SMTP bermasalah. Periksa username dan app password di backend.';
         } else {
           errorMessage = emailError instanceof Error ? emailError.message : 'Terjadi kesalahan pada service email';
         }
@@ -218,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           title: "❌ Email gagal dikirim",
           description: errorMessage,
           variant: "destructive",
-          duration: 10000,
+          duration: 15000,
         });
         return { error: emailError };
       }
