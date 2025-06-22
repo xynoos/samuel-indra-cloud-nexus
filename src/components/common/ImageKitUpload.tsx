@@ -25,19 +25,17 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   onUploadError,
   accept = "image/*,video/*,.pdf,.doc,.docx,.txt",
   folder = "/",
-  maxSize = 50 * 1024 * 1024 // 50MB default
+  maxSize = 50 * 1024 * 1024
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [metadata, setMetadata] = useState<FileMetadata>({ title: '', description: '' });
   const { toast } = useToast();
 
-  // Authentication function for ImageKit
   const authenticator = async () => {
     try {
       console.log('🔐 Authenticating with ImageKit...');
       
-      // Try to get authentication from backend first
       try {
         const response = await fetch(`${API_CONFIG.backend.url}${IMAGEKIT_CONFIG.authenticationEndpoint}`);
         if (response.ok) {
@@ -49,7 +47,6 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
         console.warn('⚠️ Backend auth failed, using client fallback:', backendError);
       }
 
-      // Client-side fallback authentication
       const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
@@ -95,7 +92,6 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
     console.log('✅ Upload success:', response);
     setUploading(false);
     
-    // Ensure metadata is properly attached
     const fileData = {
       ...response,
       title: metadata.title || response.name,
@@ -117,7 +113,6 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
       onUploadSuccess(fileData);
     }
 
-    // Reset form
     setMetadata({ title: '', description: '' });
   };
 

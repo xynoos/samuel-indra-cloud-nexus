@@ -58,7 +58,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
     setPosting(true);
 
     try {
-      // Prepare post data
       const postData = {
         content: content.trim() || null,
         media_urls: mediaFiles.map(file => file.imagekit_url || file.url),
@@ -66,7 +65,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         user_id: user.id
       };
 
-      // Save to Supabase
       const { data, error } = await supabase
         .from('posts')
         .insert(postData)
@@ -82,7 +80,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
 
       if (error) throw error;
 
-      // Create complete post object for local state
       const newPost = {
         ...data,
         likes_count: 0,
@@ -98,7 +95,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         onPostCreated(newPost);
       }
 
-      // Reset form
       setContent('');
       setMediaFiles([]);
       
@@ -138,7 +134,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
               className="min-h-[100px] resize-none border-none p-0 text-lg placeholder:text-gray-400 focus-visible:ring-0"
             />
 
-            {/* Media Preview */}
             {mediaFiles.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
                 {mediaFiles.map((file, index) => (
@@ -148,6 +143,10 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
                         src={file.imagekit_url || file.url} 
                         alt="Preview" 
                         className="w-full h-32 object-cover rounded-lg"
+                        onError={(e) => {
+                          console.error('Image failed to load:', file);
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
                     ) : (
                       <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -167,7 +166,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
               </div>
             )}
 
-            {/* Media Upload */}
             {showMediaUpload && (
               <div className="border rounded-lg p-4">
                 <ImageKitUpload
@@ -185,7 +183,6 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex items-center justify-between pt-4 border-t">
               <div className="flex space-x-2">
                 <Button
