@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
 
-## Project info
+# SamuelIndraBastian Cloud Backend Server
 
-**URL**: https://lovable.dev/projects/0dac4658-0702-41d1-ac81-255f2eb5814a
+Backend server untuk SamuelIndraBastian Cloud Storage dengan Gmail SMTP untuk verifikasi email.
 
-## How can I edit this code?
+## 🚀 Quick Start
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/0dac4658-0702-41d1-ac81-255f2eb5814a) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+### 1. Install Dependencies
+```bash
+cd backend
+npm install
 ```
 
-**Edit a file directly in GitHub**
+### 2. Start Server
+```bash
+npm start
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Server akan berjalan di: `http://localhost:3001`
 
-**Use GitHub Codespaces**
+## 📧 Gmail SMTP Configuration
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Server sudah dikonfigurasi dengan:
+- **Gmail User**: `renungankristensite@gmail.com`
+- **App Password**: `zglq snms qjfs wtfy`
+- **SMTP Host**: `smtp.gmail.com`
+- **SMTP Port**: `587`
 
-## What technologies are used for this project?
+## 🔍 Available Endpoints
 
-This project is built with:
+### Health Check
+```
+GET http://localhost:3001/health
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Send OTP Email
+```
+POST http://localhost:3001/api/send-otp-email
+Content-Type: application/json
 
-## How can I deploy this project?
+{
+  "email": "user@example.com",
+  "fullName": "User Name",
+  "otp": "123456"
+}
+```
 
-Simply open [Lovable](https://lovable.dev/projects/0dac4658-0702-41d1-ac81-255f2eb5814a) and click on Share -> Publish.
+### Verify OTP
+```
+POST http://localhost:3001/api/verify-otp
+Content-Type: application/json
 
-## Can I connect a custom domain to my Lovable project?
+{
+  "otp": "123456",
+  "expectedOtp": "123456"
+}
+```
 
-Yes, you can!
+### Test Gmail SMTP
+```
+POST http://localhost:3001/api/test-email
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🐛 Troubleshooting
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Error: ECONNREFUSED
+- Pastikan server backend berjalan
+- Cek port 3001 tidak digunakan aplikasi lain
+
+### Email Tidak Terkirim
+- Verifikasi Gmail App Password
+- Cek koneksi internet
+- Test endpoint `/api/test-email`
+
+### CORS Error
+- Server sudah dikonfigurasi untuk development dan production
+- Pastikan origin request sesuai dengan CORS configuration
+
+## 📋 Environment Requirements
+
+- Node.js >= 16.x
+- NPM >= 8.x
+- Internet connection untuk Gmail SMTP
+
+## 🔐 Security
+
+- Gmail App Password disimpan di server
+- CORS dikonfigurasi untuk domain yang diizinkan
+- Rate limiting akan ditambahkan di versi selanjutnya
