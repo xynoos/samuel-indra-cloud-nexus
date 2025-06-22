@@ -29,7 +29,6 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState<FileMetadata>({ title: '', description: '' });
   const { toast } = useToast();
 
@@ -81,7 +80,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
         description: "Judul file harus diisi",
         variant: "destructive",
       });
-      return;
+      return false;
     }
     console.log('🚀 Starting file upload...');
     setUploading(true);
@@ -89,6 +88,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
       title: "Mengupload file...",
       description: "Mohon tunggu sebentar",
     });
+    return true;
   };
 
   const handleUploadSuccess = (response: any) => {
@@ -118,7 +118,6 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
     }
 
     // Reset form
-    setSelectedFile(null);
     setMetadata({ title: '', description: '' });
   };
 
@@ -169,10 +168,11 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                 <div className="space-y-2">
                   <input
                     type="text"
-                    placeholder="Judul File"
+                    placeholder="Judul File *"
                     className="w-full px-3 py-2 border rounded-md"
                     value={metadata.title}
                     onChange={(e) => setMetadata(prev => ({ ...prev, title: e.target.value }))}
+                    required
                   />
                   <textarea
                     placeholder="Deskripsi File"
@@ -195,7 +195,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Button
                     type="button"
-                    disabled={uploading}
+                    disabled={uploading || !metadata.title.trim()}
                     className="bg-blue-600 hover:bg-blue-700"
                     asChild
                   >
@@ -210,7 +210,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                 <p className="text-xs text-gray-400">
                   Maksimal {Math.round(maxSize / (1024 * 1024))}MB
                 </p>
-                <p className="text-xs text-blue-500">
+                <p className="text-xs text-blue-600">
                   💡 Upload dapat bekerja tanpa backend server
                 </p>
               </div>
@@ -227,10 +227,13 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                   <div className="flex items-center space-x-3">
                     {getFileIcon(file.fileType)}
                     <div>
-                      <p className="font-medium text-sm">{file.name}</p>
+                      <p className="font-medium text-sm">{file.title || file.name}</p>
                       <p className="text-xs text-gray-500">
                         {file.size ? Math.round(file.size / 1024) + 'KB' : 'Unknown size'}
                       </p>
+                      {file.description && (
+                        <p className="text-xs text-gray-400 mt-1">{file.description}</p>
+                      )}
                     </div>
                   </div>
                   <Button

@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ImageKitUpload } from '@/components/common/ImageKitUpload';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreatePostProps {
   onPostCreated?: (post: any) => void;
@@ -24,6 +25,11 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
   const handleMediaUpload = (file: any) => {
     setMediaFiles(prev => [...prev, file]);
     setShowMediaUpload(false);
+    
+    toast({
+      title: "Media berhasil diupload!",
+      description: "File siap untuk dipost",
+    });
   };
 
   const removeMedia = (index: number) => {
@@ -40,27 +46,54 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Anda harus login untuk membuat post",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPosting(true);
 
     try {
-      // Create post object
-      const newPost = {
-        id: Date.now().toString(),
+      // Prepare post data
+      const postData = {
         content: content.trim() || null,
-        media_urls: mediaFiles.map(file => file.url),
+        media_urls: mediaFiles.map(file => file.imagekit_url || file.url),
         media_type: mediaFiles.length > 0 ? mediaFiles[0].fileType : null,
+        user_id: user.id
+      };
+
+      // Save to Supabase
+      const { data, error } = await supabase
+        .from('posts')
+        .insert(postData)
+        .select(`
+          *,
+          profiles!posts_user_id_profiles_fkey (
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      // Create complete post object for local state
+      const newPost = {
+        ...data,
         likes_count: 0,
         comments_count: 0,
-        created_at: new Date().toISOString(),
-        user_id: user?.id,
         profiles: {
-          username: user?.user_metadata?.username || 'user',
-          full_name: user?.user_metadata?.full_name || 'User',
-          avatar_url: user?.user_metadata?.avatar_url
+          username: user.user_metadata?.username || 'user',
+          full_name: user.user_metadata?.full_name || 'User',
+          avatar_url: user.user_metadata?.avatar_url
         }
       };
 
-      // In real app, save to Supabase
       if (onPostCreated) {
         onPostCreated(newPost);
       }
@@ -110,9 +143,9 @@ export const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
               <div className="grid grid-cols-2 gap-2">
                 {mediaFiles.map((file, index) => (
                   <div key={index} className="relative">
-                    {file.fileType.includes('image') ? (
+                    {file.fileType?.includes('image') ? (
                       <img 
-                        src={file.url} 
+                        src={file.imagekit_url || file.url} 
                         alt="Preview" 
                         className="w-full h-32 object-cover rounded-lg"
                       />

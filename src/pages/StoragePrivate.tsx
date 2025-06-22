@@ -37,6 +37,8 @@ interface FileItem {
   folder_path: string;
   created_at: string;
   updated_at: string;
+  title?: string;
+  description?: string;
 }
 
 const StoragePrivate = () => {
@@ -91,13 +93,20 @@ const StoragePrivate = () => {
           imagekit_url: uploadResponse.url,
           imagekit_file_id: uploadResponse.fileId,
           folder_path: selectedFolder,
-          is_public: false
+          is_public: false,
+          title: uploadResponse.title,
+          description: uploadResponse.description
         });
 
       if (error) throw error;
       
       loadFiles();
       setShowUpload(false);
+      
+      toast({
+        title: "Berhasil!",
+        description: "File berhasil diupload ke private storage",
+      });
     } catch (error) {
       console.error('Error saving file:', error);
       toast({
@@ -150,7 +159,8 @@ const StoragePrivate = () => {
 
   const filteredFiles = files.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.original_name.toLowerCase().includes(searchTerm.toLowerCase())
+    file.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    file.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -249,6 +259,7 @@ const StoragePrivate = () => {
                             path={file.imagekit_url}
                             transformation={[{ width: '200', height: '200', crop: 'maintain_ratio' }]}
                             className="w-full h-full object-cover"
+                            alt={file.title || file.original_name}
                           />
                         ) : (
                           <div className="text-gray-400">
@@ -257,8 +268,11 @@ const StoragePrivate = () => {
                         )}
                       </div>
                       <div>
-                        <h3 className="font-medium text-sm truncate">{file.original_name}</h3>
-                        <p className="text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
+                        <h3 className="font-medium text-sm truncate">{file.title || file.original_name}</h3>
+                        {file.description && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{file.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">{formatFileSize(file.file_size)}</p>
                         <Badge variant="secondary" className="text-xs mt-1">
                           {file.file_type.split('/')[1]?.toUpperCase()}
                         </Badge>
@@ -287,7 +301,10 @@ const StoragePrivate = () => {
                           {getFileIcon(file.file_type)}
                         </div>
                         <div>
-                          <h3 className="font-medium">{file.original_name}</h3>
+                          <h3 className="font-medium">{file.title || file.original_name}</h3>
+                          {file.description && (
+                            <p className="text-sm text-gray-600">{file.description}</p>
+                          )}
                           <p className="text-sm text-gray-500">
                             {formatFileSize(file.file_size)} • {new Date(file.created_at).toLocaleDateString('id-ID')}
                           </p>

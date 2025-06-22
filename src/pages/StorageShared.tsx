@@ -35,6 +35,8 @@ interface SharedFile {
   imagekit_url: string;
   created_at: string;
   user_id: string;
+  title?: string;
+  description?: string;
   profiles: {
     username: string;
     full_name: string;
@@ -79,10 +81,10 @@ const StorageShared = () => {
           query = query.order('created_at', { ascending: false });
           break;
         case 'popular':
-          query = query.order('file_size', { ascending: false }); // Placeholder for popularity
+          query = query.order('likes_count', { ascending: false });
           break;
         case 'trending':
-          query = query.order('updated_at', { ascending: false });
+          query = query.order('views_count', { ascending: false });
           break;
       }
 
@@ -125,7 +127,9 @@ const StorageShared = () => {
           imagekit_url: uploadResponse.url,
           imagekit_file_id: uploadResponse.fileId,
           folder_path: '/shared',
-          is_public: true
+          is_public: true,
+          title: uploadResponse.title,
+          description: uploadResponse.description
         });
 
       if (error) throw error;
@@ -158,6 +162,7 @@ const StorageShared = () => {
   const filteredFiles = files.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     file.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    file.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     file.profiles?.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -177,10 +182,12 @@ const StorageShared = () => {
             <h1 className="text-3xl font-bold text-gray-900">Shared Storage</h1>
             <p className="text-gray-600 mt-2">Jelajahi dan bagikan file dengan komunitas</p>
           </div>
-          <Button onClick={() => setShowUpload(true)} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Share File
-          </Button>
+          {user && (
+            <Button onClick={() => setShowUpload(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Share File
+            </Button>
+          )}
         </div>
 
         {/* Upload Modal */}
@@ -246,10 +253,12 @@ const StorageShared = () => {
               <Share className="w-16 h-16 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada file yang dibagikan</h3>
               <p className="text-gray-500 mb-4">Jadilah yang pertama membagikan file ke komunitas</p>
-              <Button onClick={() => setShowUpload(true)}>
-                <Upload className="w-4 h-4 mr-2" />
-                Share File
-              </Button>
+              {user && (
+                <Button onClick={() => setShowUpload(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Share File
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -267,6 +276,7 @@ const StorageShared = () => {
                             path={file.imagekit_url}
                             transformation={[{ width: '300', height: '300', crop: 'maintain_ratio' }]}
                             className="w-full h-full object-cover"
+                            alt={file.title || file.original_name}
                           />
                         ) : (
                           <div className="text-6xl">📁</div>
@@ -275,7 +285,10 @@ const StorageShared = () => {
                       
                       {/* File Info */}
                       <div>
-                        <h3 className="font-medium text-sm truncate mb-1">{file.original_name}</h3>
+                        <h3 className="font-medium text-sm truncate mb-1">{file.title || file.original_name}</h3>
+                        {file.description && (
+                          <p className="text-xs text-gray-600 mb-1 line-clamp-2">{file.description}</p>
+                        )}
                         <p className="text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
                         <Badge variant="secondary" className="text-xs mt-1">
                           {file.file_type.split('/')[1]?.toUpperCase()}
@@ -326,13 +339,17 @@ const StorageShared = () => {
                               path={file.imagekit_url}
                               transformation={[{ width: '48', height: '48', crop: 'maintain_ratio' }]}
                               className="w-12 h-12 object-cover rounded-lg"
+                              alt={file.title || file.original_name}
                             />
                           ) : (
                             <div className="text-xl">📁</div>
                           )}
                         </div>
                         <div>
-                          <h3 className="font-medium">{file.original_name}</h3>
+                          <h3 className="font-medium">{file.title || file.original_name}</h3>
+                          {file.description && (
+                            <p className="text-sm text-gray-600 line-clamp-1">{file.description}</p>
+                          )}
                           <div className="flex items-center space-x-2 text-sm text-gray-500">
                             <span>{formatFileSize(file.file_size)}</span>
                             <span>•</span>
