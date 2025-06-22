@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Cloud, 
@@ -11,11 +11,14 @@ import {
   RefreshCw,
   Settings,
   User,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +32,8 @@ const Navigation = () => {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
+  const isMobile = useIsMobile();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigationItems = [
     { path: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -42,6 +47,11 @@ const Navigation = () => {
 
   const handleSignOut = async () => {
     await signOut();
+    setMobileMenuOpen(false);
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -55,7 +65,8 @@ const Navigation = () => {
             </span>
           </Link>
 
-          {user && (
+          {/* Desktop Navigation */}
+          {user && !isMobile && (
             <div className="hidden lg:flex items-center space-x-1">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
@@ -82,13 +93,23 @@ const Navigation = () => {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
+                {/* Mobile Menu Button */}
+                {isMobile && (
+                  <Button
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="lg:hidden"
+                  >
+                    {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                  </Button>
+                )}
+
                 <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
                   <span>Welcome, {profile?.username || user.email?.split('@')[0]}</span>
                 </div>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Button className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={profile?.avatar_url} alt={profile?.username} />
                         <AvatarFallback>
@@ -132,12 +153,12 @@ const Navigation = () => {
             ) : (
               <div className="flex items-center space-x-2">
                 <Link to="/login">
-                  <Button variant="ghost" size="sm">
+                  <Button>
                     Login
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <Button className="bg-blue-600 hover:bg-blue-700">
                     Register
                   </Button>
                 </Link>
@@ -145,6 +166,34 @@ const Navigation = () => {
             )}
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {user && isMobile && mobileMenuOpen && (
+          <div className="lg:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={closeMobileMenu}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
