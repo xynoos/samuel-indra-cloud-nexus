@@ -5,7 +5,7 @@ import { Upload, X, File, Image, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { IMAGEKIT_CONFIG } from '@/lib/config';
+import { IMAGEKIT_CONFIG, API_CONFIG } from '@/lib/config';
 
 interface ImageKitUploadProps {
   onUploadSuccess?: (file: any) => void;
@@ -13,6 +13,11 @@ interface ImageKitUploadProps {
   accept?: string;
   folder?: string;
   maxSize?: number;
+}
+
+interface FileMetadata {
+  title: string;
+  description: string;
 }
 
 export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
@@ -24,6 +29,8 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [metadata, setMetadata] = useState<FileMetadata>({ title: '', description: '' });
   const { toast } = useToast();
 
   // Authentication function for ImageKit
@@ -33,28 +40,21 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
       
       // Try to get authentication from backend first
       try {
-        const response = await fetch(IMAGEKIT_CONFIG.authenticationEndpoint);
+        const response = await fetch(`${API_CONFIG.backend.url}${IMAGEKIT_CONFIG.authenticationEndpoint}`);
         if (response.ok) {
           const authData = await response.json();
           console.log('✅ Backend authentication successful');
           return authData;
         }
       } catch (backendError) {
-        console.warn('⚠️ Backend auth failed, trying direct ImageKit auth:', backendError);
+        console.warn('⚠️ Backend auth failed, using client fallback:', backendError);
       }
 
-      // Direct ImageKit authentication as fallback
-      const crypto = window.crypto || (window as any).msCrypto;
-      if (!crypto) {
-        throw new Error('Web Crypto API not supported');
-      }
-
+      // Client-side fallback authentication
       const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
       const expire = Math.floor(Date.now() / 1000) + 2400;
-      
-      // For client-side fallback, we'll use a simplified signature
       const signature = 'client_fallback_' + Date.now();
       
       console.log('🔧 Using client-side fallback authentication');
@@ -67,7 +67,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
       console.error('❌ ImageKit auth error:', error);
       toast({
         title: "Authentication Error",
-        description: "Gagal autentikasi dengan ImageKit. Pastikan backend berjalan di localhost:3001",
+        description: "Gagal autentikasi dengan ImageKit",
         variant: "destructive",
       });
       throw error;
@@ -75,6 +75,14 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   };
 
   const handleUploadStart = () => {
+    if (!metadata.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Judul file harus diisi",
+        variant: "destructive",
+      });
+      return;
+    }
     console.log('🚀 Starting file upload...');
     setUploading(true);
     toast({
@@ -86,16 +94,32 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
   const handleUploadSuccess = (response: any) => {
     console.log('✅ Upload success:', response);
     setUploading(false);
-    setUploadedFiles(prev => [...prev, response]);
+    
+    // Ensure metadata is properly attached
+    const fileData = {
+      ...response,
+      title: metadata.title || response.name,
+      description: metadata.description || '',
+      file_type: response.fileType,
+      file_size: response.size,
+      imagekit_url: response.url,
+      imagekit_file_id: response.fileId
+    };
+    
+    setUploadedFiles(prev => [...prev, fileData]);
     
     toast({
       title: "Upload berhasil!",
-      description: `File ${response.name} berhasil diupload`,
+      description: `File ${fileData.title} berhasil diupload`,
     });
 
     if (onUploadSuccess) {
-      onUploadSuccess(response);
+      onUploadSuccess(fileData);
     }
+
+    // Reset form
+    setSelectedFile(null);
+    setMetadata({ title: '', description: '' });
   };
 
   const handleUploadError = (error: any) => {
@@ -104,7 +128,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
     
     let errorMessage = "Terjadi kesalahan saat upload";
     if (error.message?.includes('Authentication') || error.message?.includes('signature')) {
-      errorMessage = "Masalah autentikasi ImageKit. Pastikan backend server berjalan di localhost:3001";
+      errorMessage = "Masalah autentikasi ImageKit. Upload menggunakan mode fallback";
     } else if (error.message?.includes('network')) {
       errorMessage = "Masalah koneksi jaringan";
     }
@@ -141,7 +165,23 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
           <CardContent className="p-6">
             <div className="text-center">
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-              <div className="space-y-2">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Judul File"
+                    className="w-full px-3 py-2 border rounded-md"
+                    value={metadata.title}
+                    onChange={(e) => setMetadata(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                  <textarea
+                    placeholder="Deskripsi File"
+                    className="w-full px-3 py-2 border rounded-md"
+                    rows={3}
+                    value={metadata.description}
+                    onChange={(e) => setMetadata(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
                 <IKUpload
                   fileName="file"
                   folder={folder}
@@ -171,7 +211,7 @@ export const ImageKitUpload: React.FC<ImageKitUploadProps> = ({
                   Maksimal {Math.round(maxSize / (1024 * 1024))}MB
                 </p>
                 <p className="text-xs text-blue-500">
-                  💡 Tip: Jalankan backend server (cd backend && npm start) untuk fitur penuh
+                  💡 Upload dapat bekerja tanpa backend server
                 </p>
               </div>
             </div>

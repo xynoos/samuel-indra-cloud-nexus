@@ -68,9 +68,75 @@ export type Database = {
         }
         Relationships: []
       }
-      files: {
+      file_comments: {
+        Row: {
+          content: string
+          created_at: string
+          file_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          file_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          file_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_comments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_likes: {
         Row: {
           created_at: string
+          file_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_likes_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          comments_count: number | null
+          created_at: string
+          description: string | null
           file_size: number
           file_type: string
           folder_path: string | null
@@ -78,13 +144,18 @@ export type Database = {
           imagekit_file_id: string
           imagekit_url: string
           is_public: boolean
+          likes_count: number | null
           name: string
           original_name: string
+          title: string | null
           updated_at: string
           user_id: string
+          views_count: number | null
         }
         Insert: {
+          comments_count?: number | null
           created_at?: string
+          description?: string | null
           file_size: number
           file_type: string
           folder_path?: string | null
@@ -92,13 +163,18 @@ export type Database = {
           imagekit_file_id: string
           imagekit_url: string
           is_public?: boolean
+          likes_count?: number | null
           name: string
           original_name: string
+          title?: string | null
           updated_at?: string
           user_id: string
+          views_count?: number | null
         }
         Update: {
+          comments_count?: number | null
           created_at?: string
+          description?: string | null
           file_size?: number
           file_type?: string
           folder_path?: string | null
@@ -106,10 +182,13 @@ export type Database = {
           imagekit_file_id?: string
           imagekit_url?: string
           is_public?: boolean
+          likes_count?: number | null
           name?: string
           original_name?: string
+          title?: string | null
           updated_at?: string
           user_id?: string
+          views_count?: number | null
         }
         Relationships: []
       }
@@ -229,8 +308,10 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          email: string | null
           full_name: string
           id: string
+          is_online: boolean | null
           updated_at: string
           username: string
         }
@@ -238,8 +319,10 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          email?: string | null
           full_name: string
           id: string
+          is_online?: boolean | null
           updated_at?: string
           username: string
         }
@@ -247,8 +330,10 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string
           id?: string
+          is_online?: boolean | null
           updated_at?: string
           username?: string
         }
